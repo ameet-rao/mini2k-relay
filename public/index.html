@@ -107,6 +107,12 @@
   .online details summary { cursor: pointer; color: var(--yel); }
   .online details label { display: grid; grid-template-columns: 220px 1fr; gap: 12px; align-items: center; margin: 10px 0; }
   .online details p { text-transform: none; color: var(--dim); margin: 8px 0; }
+  .seats { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 26px; margin: 18px 4px 0; }
+  .seats .side { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: var(--panel2); }
+  .seats h2 { font: 20px/1.4 var(--px); margin: 0; color: var(--yel); }
+  .seats button.seat { text-align: left; font: 20px/1.5 var(--tiny); text-transform: none; }
+  .seats button.seat.mine { outline: 4px solid var(--yel); }
+  .seats button.seat b { font-weight: normal; color: var(--dim); }
   #netBadge { position: fixed; top: 6px; left: 8px; z-index: 4; font: 20px/1.2 var(--tiny); color: #c8f08f; text-shadow: 2px 2px 0 #000; pointer-events: none; }
   #netBadge.bad { color: #ff8a6a; }
   #netMsg { position: fixed; top: 18%; left: 50%; transform: translateX(-50%); z-index: 6; background: var(--panel); padding: 16px 24px; text-align: center; max-width: 80vw;
@@ -150,7 +156,7 @@
       <label>Controls <input type="checkbox" class="setHints"></label>
       <label>FPS <input type="checkbox" class="setFps"></label>
     </div>
-    <div class="actions"><button id="btnStart">Tip Off Now</button><button class="ghost" id="btnOnline">Play a friend online</button><button class="ghost" id="btnDemo">Watch CPU vs CPU</button><button class="ghost btnFull">Fullscreen</button></div>
+    <div class="actions"><button id="btnStart">Tip Off Now</button><button class="ghost" id="btnOnline">Play a friend online</button><button class="ghost" id="btnOnline2">Play 2v2 Online</button><button class="ghost" id="btnDemo">Watch CPU vs CPU</button><button class="ghost btnFull">Fullscreen</button></div>
   </div>
 </div>
 
@@ -222,6 +228,33 @@
       <label>TURN password<input type="password" id="netPass" autocomplete="off"></label>
       <div class="actions left" style="margin-top:6px"><button class="ghost" id="btnNetSave">Save</button><span id="netSaved"></span></div>
     </details>
+  </div>
+</div>
+
+<div class="overlay online" id="online2" hidden>
+  <div class="card">
+    <div class="head"><h1>Play 2v2 online <span class="tag">up to 4 players</span></h1></div>
+    <p class="sub">One person creates a room and up to three friends join with its code. Each team has two players: one runs the PG and C, the other runs the SG, SF and PF. An open spot is played by the CPU. Off the ball, Q switches between your own players. Needs the Mini2K server.</p>
+    <div class="picks">
+      <label for="o2Name">Your name<input type="text" id="o2Name" maxlength="12" autocomplete="off" spellcheck="false" placeholder="PLAYER"></label>
+      <label for="o2Via">Connect through<select id="o2Via"><option value="server" selected>Internet: Mini2K server</option><option value="local">This computer: tabs (test)</option></select></label>
+      <label for="o2Q">Quarter length (room creator picks)<select id="o2Q"><option value="2">2 minutes</option><option value="5">5 minutes</option><option value="6">6 minutes</option><option value="8">8 minutes</option><option value="12" selected>12 minutes</option></select></label>
+      <label for="o2Diff">Meter difficulty (room creator picks)<select id="o2Diff"><option value="easy">Super Easy</option><option value="rookie">Rookie</option><option value="pro" selected>Pro</option><option value="allstar">All-Star</option></select></label>
+    </div>
+    <div class="row2" id="o2Choose">
+      <button id="btnO2Host">Create room</button>
+      <span>or</span>
+      <input type="text" id="o2Code" placeholder="CODE" maxlength="12" autocomplete="off" spellcheck="false">
+      <button class="ghost" id="btnO2Join">Join room</button>
+    </div>
+    <div class="row2" id="o2Room" hidden><span>Room code</span><span class="roomcode" id="o2RoomCode"></span><span class="note">Tell your friends this code.</span></div>
+    <div class="seats" id="o2Seats" hidden>
+      <div class="side"><h2>Home</h2><select id="o2TeamHome"></select><button class="ghost seat" data-k="home"></button><button class="ghost seat" data-k="home2"></button></div>
+      <div class="side"><h2>Away</h2><select id="o2TeamAway"></select><button class="ghost seat" data-k="away"></button><button class="ghost seat" data-k="away2"></button></div>
+    </div>
+    <div class="status" id="o2Status"></div>
+    <div class="match" id="o2Match"></div>
+    <div class="actions"><button id="btnO2Start" hidden disabled>Tip Off Now</button><button class="ghost" id="btnO2Leave">Back</button><button class="ghost btnFull">Fullscreen</button></div>
   </div>
 </div>
 
@@ -1947,6 +1980,11 @@ const PIVOT_STEP = 1.3;           // feet the body swings around the pivot foot
 const SIDE_MOVES = ['shift', 'crossover', 'between_legs', 'behind_back'];
 /** A timeout lasts this long (seconds); both coaches make substitutions during it, in when it ends. */
 export const TIMEOUT_SECS = 10;
+// 2v2 online: two people per team. 'home'/'away' run the PG and C, 'home2'/'away2' the SG, SF and PF.
+export const SEAT_KEYS = ['home', 'home2', 'away', 'away2'];
+export const SEAT_ROLES = { home: [0, 4], home2: [1, 2, 3], away: [0, 4], away2: [1, 2, 3] };
+export const sideOfKey = (k) => (k.startsWith('home') ? 'home' : 'away');
+const hasDir = (i) => !!i && (Math.abs(i.mx) > 0.01 || Math.abs(i.my) > 0.01);
 /** Usual offense/defense ratio of the positional rebound factors (keeps the offensive-rebound rate calibrated). */
 const REB_NORM = 0.66;
 /**
@@ -1981,10 +2019,17 @@ export class LiveGame {
     this.game = new Game(data, opts);
     this.game.deferred = true;  // free throws and rebounds are played out here, one step at a time
     this.data = this.game.data;
-    this.humans = user === 'both' ? ['home', 'away'] : user ? [user] : [];
+    // Controllers: one per person. Normally the key is the side ('home', 'away') and the person runs
+    // the whole team. In 2v2 (`seats`), each side can have two people: 'home' runs the PG and C,
+    // 'home2' the SG, SF and PF (SEAT_ROLES); roles nobody holds are played by the CPU.
+    const seats = opts.seats ?? null;
+    this.ctls = seats ? SEAT_KEYS.filter((k) => seats.includes(k)) : user === 'both' ? ['home', 'away'] : user ? [user] : [];
+    this.humans = ['home', 'away'].filter((sd) => this.ctls.some((k) => sideOfKey(k) === sd));
     this.user = user === 'both' ? 'home' : user;
-    const uctx = () => ({ ctrl: null, wantTimeout: false, pendingSubs: [], shootHeld: false });
-    this.uc = { home: uctx(), away: uctx() };
+    this.me = this.user;           // controller key of THIS screen (display only, like `user`)
+    const uctx = (k) => ({ side: sideOfKey(k), roles: seats ? SEAT_ROLES[k] : null, ctrl: null, wantTimeout: false, pendingSubs: [], shootHeld: false });
+    this.uc = {};
+    for (const k of [...new Set(['home', 'away', ...this.ctls])]) this.uc[k] = uctx(k);
     this.difficulty = difficulty;
     this.diff = AI.DIFFICULTY[difficulty] ?? AI.DIFFICULTY.pro;
     this.rng = new Rng(((opts.seed ?? 1) * 7919 + 17) >>> 0);
@@ -2035,13 +2080,33 @@ export class LiveGame {
   // The viewing side's context (UI reads these; the engine uses uc[side] directly).
   // ctrl: entity the user controls. wantTimeout: set by the pause menu, used the next time that team
   // has the ball. pendingSubs: [{ out, in }] from the pause menu, made at the next dead ball.
-  get ctrl() { return this.user ? this.uc[this.user].ctrl : null; }
-  set ctrl(v) { if (this.user) this.uc[this.user].ctrl = v; }
-  get wantTimeout() { return this.user ? this.uc[this.user].wantTimeout : false; }
-  set wantTimeout(v) { if (this.user) this.uc[this.user].wantTimeout = v; }
-  get pendingSubs() { return this.user ? this.uc[this.user].pendingSubs : []; }
+  get ctrl() { return this.me ? this.uc[this.me]?.ctrl ?? null : null; }
+  set ctrl(v) { if (this.me && this.uc[this.me]) this.uc[this.me].ctrl = v; }
+  get wantTimeout() { return this.me ? this.uc[this.me]?.wantTimeout ?? false : false; }
+  set wantTimeout(v) { if (this.me && this.uc[this.me]) this.uc[this.me].wantTimeout = v; }
+  get pendingSubs() { return this.me ? this.uc[this.me]?.pendingSubs ?? [] : []; }
   isHuman(side) { return this.humans.includes(side); }
-  isCtrl(e) { return !!e && this.humans.includes(e.side) && this.uc[e.side].ctrl === e; }
+  /** The controller (person) running entity e right now, or null. */
+  ctlOf(e) { if (!e) return null; for (const k of this.ctls) if (this.uc[k].ctrl === e) return k; return null; }
+  isCtrl(e) { return this.ctlOf(e) !== null; }
+  /** Can controller k take entity e (same side, and one of its positions in 2v2)? */
+  owns(k, e) { const U = this.uc[k]; return !!e && e.side === U.side && (!U.roles || U.roles.includes(e.role)); }
+  /** Controller k's own players. */
+  mine(k) { return this.ents[this.uc[k].side].filter((e) => this.owns(k, e)); }
+  /** Hand control to the person who owns entity e (on e's side). */
+  give(e) { for (const k of this.ctls) if (this.owns(k, e)) this.uc[k].ctrl = e; }
+  /** Put each person on the right player when the ball goes to `be`: the ball (or the man guarding it) if it is theirs, else their player nearest the ball. */
+  assignAll(be) {
+    for (const k of this.ctls) {
+      const U = this.uc[k];
+      const want = U.side === be.side ? be : this.matchOf(be);
+      U.ctrl = this.owns(k, want) ? want : this.nearestOwn(k, be);
+    }
+  }
+  nearestOwn(k, to) {
+    const list = this.mine(k);
+    return list.length ? list.reduce((a, c) => (distE(a, to) <= distE(c, to) ? a : c)) : null;
+  }
   p(id) { return this.data.byId[id]; }
   dirRight(side) { return (side === 'home') === (this.state.period <= this.game.rules.periods / 2); }
   hoopOf(side) { return hoopPos(this.dirRight(side)); }
@@ -2068,6 +2133,8 @@ export class LiveGame {
         .sort((a, b) => POS_ORDER[this.p(a.id).pos] - POS_ORDER[this.p(b.id).pos] || a.slot - b.slot)
         .forEach((e, r) => { e.role = r; });
     }
+    // 2v2: a sub can reshuffle positions; nobody keeps a player who is no longer theirs
+    for (const k of this.ctls) { const U = this.uc[k]; if (U.ctrl && !this.owns(k, U.ctrl)) U.ctrl = this.nearestOwn(k, this.ball); }
   }
 
   nearestDef(e) {
@@ -2229,8 +2296,9 @@ export class LiveGame {
    */
   update(dt, input = NO_INPUT) {
     const I = { home: NO_INPUT, away: NO_INPUT };
-    if (input && (input.home || input.away)) { I.home = input.home ?? NO_INPUT; I.away = input.away ?? NO_INPUT; }
-    else if (this.humans.length === 1) I[this.humans[0]] = input ?? NO_INPUT;
+    for (const k of this.ctls) I[k] = NO_INPUT;
+    if (input && this.ctls.some((k) => input[k])) { for (const k of this.ctls) I[k] = input[k] ?? NO_INPUT; }
+    else if (this.ctls.length === 1) I[this.ctls[0]] = input ?? NO_INPUT;
     this.time += dt;
     if (this.banner && (this.banner.t += dt) >= this.banner.dur) this.banner = null;
     for (const f of this.fx) f.t += dt;
@@ -2244,7 +2312,7 @@ export class LiveGame {
       case 'break': this.updateBreak(dt); break;
       default: for (const e of this.all) this.hold(e);
     }
-    for (const me of this.humans) this.uc[me].shootHeld = !!I[me].shoot;
+    for (const k of this.ctls) this.uc[k].shootHeld = !!I[k].shoot;
     this.physics(dt);
     this.ballFollow(dt);
     if (this._seen < this.game.events.length) this.pump();
@@ -2362,7 +2430,7 @@ export class LiveGame {
     if (kind !== 'oreb') for (const e of this.ents[side]) { e.spot = null; e.cut = 0; e.screen = 0; e.roll = false; }
     for (const e of this.all) { e.oob = false; e.handsUp = false; e.pivot = false; e.dribbled = false; e.faked = 0; }
     this.double = null; this.ftMeter = null; this.rebCtx = null;
-    for (const me of this.humans) this.uc[me].ctrl = side === me ? holder : this.matchOf(holder);
+    this.assignAll(holder);
     if (this.humans.length) this.needRelease = true;
   }
 
@@ -2377,7 +2445,8 @@ export class LiveGame {
     if (b.flight && this.updateFlight(dt)) return;
     const holder = b.holder;
 
-    for (const me of this.humans) this.updateControl(I[me], offSide, me);
+    this.passTarget = null;
+    for (const k of this.ctls) this.updateControl(I[k], offSide, k);
 
     // Violations.
     if (holder && (holder.x < 0 || holder.x > COURT.L || holder.y < 0 || holder.y > COURT.W)) {
@@ -2397,7 +2466,9 @@ export class LiveGame {
     let act = null;
     for (const e of this.all) {
       const lobTo = b.flight?.lob && b.flight.to === e;
-      if (this.isCtrl(e) && !lobTo) { this.userMove(e, I[e.side]); continue; }
+      const ck = lobTo ? null : this.ctlOf(e);
+      // 2v2: a person off the ball on offense moves his man only while holding a direction (else the CPU runs his cuts)
+      if (ck && (e === holder || e.side !== offSide || !this.uc[ck].roles || hasDir(I[ck]))) { this.userMove(e, I[ck]); continue; }
       if (e.side === offSide) {
         if (e === holder) {
           if (this.windup) { this.hold(e); continue; }
@@ -2430,7 +2501,7 @@ export class LiveGame {
     }
 
     // User actions (each human side in turn; stop if one of them changed the phase).
-    for (const me of this.humans) if (this.userActions(dt, I[me], me, offSide, holder)) return;
+    for (const k of this.ctls) if (this.userActions(dt, I[k], k, offSide, holder)) return;
 
     if (act) {
       if (act.k === 'shoot') {
@@ -2451,10 +2522,12 @@ export class LiveGame {
   }
 
   /** Buttons of one human side during live play. @returns true if the phase changed (stop the step). */
-  userActions(dt, input, me, offSide, holder) {
-    const g = this.game, s = g.state, U = this.uc[me], ctrl = U.ctrl;
+  userActions(dt, input, k, offSide, holder) {
+    const g = this.game, s = g.state, U = this.uc[k], ctrl = U.ctrl, me = U.side;
     if (!ctrl) return false;
     if (offSide === me) {
+      // 2v2, off the ball: Q switches between your own players
+      if (holder !== ctrl && input.swap && U.roles) this.swapOwn(k);
       if (holder === ctrl) {
         if (input.pick && !this.meter) this.callPick(holder);
         if (!input.shoot) this.needRelease = false;
@@ -2472,7 +2545,7 @@ export class LiveGame {
       }
     } else {
       ctrl.handsUp = !!input.shoot;
-      if (input.pick) this.callDouble(me);
+      if (input.pick) this.callDouble(k);
     }
     if (this.double && this.double.e.side === me && ((this.double.t += dt) > 7 || !holder || holder.side === me)) this.double = null;
     // T: timeout (your team must have the ball while play is live).
@@ -2483,23 +2556,22 @@ export class LiveGame {
     }
     if (offSide !== me) {
       if (input.steal && this.trySteal(ctrl)) return true;
-      if (input.swap) this.swapDefender(me);
+      if (input.swap) this.swapDefender(k);
     }
     return false;
   }
 
-  updateControl(input, offSide, me) {
-    const b = this.ball, U = this.uc[me];
+  updateControl(input, offSide, k) {
+    const b = this.ball, U = this.uc[k], me = U.side;
     if (offSide === me) {
       const c = b.holder ?? b.flight?.to ?? U.ctrl;
-      U.ctrl = c && c.side === me ? c : this.ents[me][0];
-      this.passTarget = b.holder === U.ctrl ? this.pickPassTarget(U.ctrl, input) : null;
-    } else {
-      if (!this.isHuman(offSide)) this.passTarget = null;
-      if (!U.ctrl || U.ctrl.side !== me) {
-        const be = this.ballEnt();
-        U.ctrl = be && be.side !== me ? this.matchOf(be) : this.ents[me][0];
-      }
+      if (c && this.owns(k, c)) U.ctrl = c;
+      else if (!U.ctrl || !this.owns(k, U.ctrl)) U.ctrl = this.nearestOwn(k, c ?? b) ?? this.ents[me][0];
+      if (b.holder && b.holder === U.ctrl) this.passTarget = this.pickPassTarget(U.ctrl, input);
+    } else if (!U.ctrl || !this.owns(k, U.ctrl)) {
+      const be = this.ballEnt();
+      const m = be && be.side !== me ? this.matchOf(be) : null;
+      U.ctrl = m && this.owns(k, m) ? m : this.nearestOwn(k, be ?? b) ?? this.ents[me][0];
     }
   }
 
@@ -2567,12 +2639,20 @@ export class LiveGame {
     return best;
   }
 
-  swapDefender(me) {
-    const be = this.ballEnt(), U = this.uc[me];
+  swapDefender(k) {
+    const be = this.ballEnt(), U = this.uc[k];
     if (!be) return;
-    const order = this.ents[me].filter((e) => e !== U.ctrl).sort((a, b) => distE(a, be) - distE(b, be));
+    const order = this.mine(k).filter((e) => e !== U.ctrl).sort((a, b) => distE(a, be) - distE(b, be));
+    if (!order.length) return;
     U.ctrl.handsUp = false;
     U.ctrl = order[0];
+  }
+
+  /** 2v2 offense off the ball: next of your own players. */
+  swapOwn(k) {
+    const U = this.uc[k], list = this.mine(k);
+    if (list.length < 2) return;
+    U.ctrl = list[(list.indexOf(U.ctrl) + 1) % list.length];
   }
 
   // ------------------------------------------------------------------ passing
@@ -2690,14 +2770,14 @@ export class LiveGame {
           }
         }
         b.flight = null; b.holder = f.to;
-        if (this.isHuman(side)) this.uc[side].ctrl = f.to;
+        this.give(f.to);
         // catching and finishing in the air: a little harder than a layup, harder still if he got there late
         this.shoot(f.to, -0.04 - 0.03 * Math.max(0, distE(f.to, f.pt) - 1.5), false, { oop: true });
         return true;
       }
       b.flight = null; b.holder = f.to;
       this.plan = AI.newPlan(this, f.to, { caught: true });
-      if (this.isHuman(side)) { this.uc[side].ctrl = f.to; this.needRelease = true; }
+      if (this.isHuman(side)) { this.give(f.to); if (this.isCtrl(f.to)) this.needRelease = true; }
     }
     return false;
   }
@@ -2747,12 +2827,13 @@ export class LiveGame {
   }
 
   /** R on defense: the nearest free teammate leaves his man and traps the ball. R again calls it off. */
-  callDouble(me) {
-    const h = this.ball.holder;
+  callDouble(k) {
+    const h = this.ball.holder, me = this.uc[k].side;
     if (!h || h.side === me) return false;
     if (this.double) { this.double = null; this.fxText('Double team off', h.x, h.y - 8, '#c8c8c8'); return false; }
     const onBall = this.matchOf(h);
-    const pool = this.ents[me].filter((e) => e !== this.uc[me].ctrl && e !== onBall);
+    const pool = this.ents[me].filter((e) => !this.isCtrl(e) && e !== onBall);
+    if (!pool.length) return false;
     const e = pool.reduce((a, c) => (distE(a, h) <= distE(c, h) ? a : c));
     this.double = { e, t: 0 };
     this.stats.doubles = (this.stats.doubles ?? 0) + 1;
@@ -3263,8 +3344,8 @@ export class LiveGame {
           if (distE(shooter, spot) > 2) { shooter.x = spot.x; shooter.y = spot.y; shooter.vx = shooter.vy = 0; }
           const hoop = this.hoopOf(st.side);
           shooter.fx = Math.sign(hoop.x - shooter.x) || 1; shooter.fy = 0;
-          if (this.isHuman(st.side)) {
-            this.uc[st.side].ctrl = shooter;
+          this.give(shooter);
+          if (this.isCtrl(shooter)) {
             const ftA = this.p(shooter.id).attrs.free_throw;
             const green = clamp((0.040 + 0.001 * (ftA - 50)) * this.diff.greenScale, 0.024, 0.08);
             const orange = 0.20;
@@ -3299,15 +3380,15 @@ export class LiveGame {
     const u = Math.min(1, st.t / st.dur);
     this.dispClock = Math.max(this.state.clock, this.dispClock - dt);
     // Space as the ball comes off: the player you control goes up for the rebound.
-    for (const me of this.humans) {
-      const U = this.uc[me];
-      if (U.ctrl && I[me].shoot && !U.shootHeld && (st.k === 'shot' || st.k === 'ft' || st.k === 'reb')) U.ctrl.jumpT = this.time - lagOf(I[me]);
+    for (const k of this.ctls) {
+      const U = this.uc[k];
+      if (U.ctrl && I[k].shoot && !U.shootHeld && (st.k === 'shot' || st.k === 'ft' || st.k === 'reb')) U.ctrl.jumpT = this.time - lagOf(I[k]);
     }
-    for (const me of this.humans) {
-      if (!(I[me].swap && (st.k === 'shot' || st.k === 'reb') && this.rebCtx)) continue;
+    for (const k of this.ctls) {
+      if (!(I[k].swap && (st.k === 'shot' || st.k === 'reb') && this.rebCtx)) continue;
       // Q while the shot is in the air: take over your player closest to the rim.
-      const U = this.uc[me], mine = this.ents[me].filter((e) => e !== U.ctrl);
-      U.ctrl = mine.reduce((a, c) => (distE(a, this.rebCtx.hoop) <= distE(c, this.rebCtx.hoop) ? a : c));
+      const U = this.uc[k], mine = this.mine(k).filter((e) => e !== U.ctrl);
+      if (mine.length) U.ctrl = mine.reduce((a, c) => (distE(a, this.rebCtx.hoop) <= distE(c, this.rebCtx.hoop) ? a : c));
     }
 
     if (st.k === 'ftsetup') {
@@ -3325,7 +3406,7 @@ export class LiveGame {
       }
       return;
     }
-    if (st.k === 'ftaim') { this.animTargets(st, dt, I); return this.updateFtAim(st, dt, I[st.side] ?? NO_INPUT); }
+    if (st.k === 'ftaim') { this.animTargets(st, dt, I); return this.updateFtAim(st, dt, I[this.ctlOf(this.ftLine?.shooter)] ?? NO_INPUT); }
 
     if (st.k === 'shot' || st.k === 'ft') {
       const blocked = st.k === 'shot' && st.ev.block;
@@ -3452,7 +3533,7 @@ export class LiveGame {
       for (const e of this.all) {
         if (st.k === 'shot' && e.id === st.ev.player && st.t < 0.35) { this.hold(e); continue; } // follow through
         if (st.k === 'reb' && e === st.to) { this.steer(e, this.ball.x, this.ball.y, true, 1); continue; }
-        if (this.isCtrl(e)) { this.userMove(e, I[e.side]); continue; }
+        if (this.isCtrl(e)) { this.userMove(e, I[this.ctlOf(e)]); continue; }
         if (e.side === side) {
           if (e.role >= 3) this.steer(e, hoop.x + dir * 4.5, hoop.y + (e.role === 3 ? 4.5 : -4.5), true);
           else if (e.role === 2) this.steer(e, hoop.x + dir * 11, hoop.y + (e.y > hoop.y ? 7 : -7), false);
@@ -3507,25 +3588,25 @@ export class LiveGame {
   }
 
   /** Queue a manual substitution for a human team (made at the next dead ball). Turns auto subs off. */
-  requestSub(outId, inId, me = this.user) {
-    if (!this.isHuman(me)) return false;
-    const U = this.uc[me];
+  requestSub(outId, inId, k = this.me) {
+    const U = this.uc[k];
+    if (!U || !this.ctls.includes(k)) return false;
     U.pendingSubs = U.pendingSubs.filter((w) => w.out !== outId && w.in !== inId);
     if (inId) U.pendingSubs.push({ out: outId, in: inId });
-    this.game.autoSubs[me] = false;
+    this.game.autoSubs[U.side] = false;
     return true;
   }
 
   applySubs() {
     const g = this.game, i0 = g.events.length;
     let any = false;
-    for (const me of this.humans) {
-      const list = this.uc[me].pendingSubs;
+    for (const k of this.ctls) {
+      const list = this.uc[k].pendingSubs;
       if (!list.length) continue;
       any = true;
-      this.uc[me].pendingSubs = [];
+      this.uc[k].pendingSubs = [];
       for (const w of list) {
-        try { g.substitute(me, w.out, w.in, 'manual'); } catch { /* fouled out or already swapped: skip */ }
+        try { g.substitute(this.uc[k].side, w.out, w.in, 'manual'); } catch { /* fouled out or already swapped: skip */ }
       }
     }
     if (!any) return false;
@@ -3547,7 +3628,7 @@ export class LiveGame {
     for (const e of this.ents[side]) { e.spot = null; e.cut = 0; e.screen = 0; e.roll = false; }
     this.inb = { side, where, runClock, spot, rspot, recv, passer, thrown: false, minT: runClock ? 0.5 : 1.1 };
     this.crossed = false;
-    for (const me of this.humans) this.uc[me].ctrl = side === me ? recv : this.matchOf(recv);
+    this.assignAll(recv);
   }
 
   updateInbound(dt) {
@@ -7390,6 +7471,16 @@ export class Broadcast {
       c.fillRect(sx - 9, y0 - 3, 18, 1); c.fillRect(sx - 9, y0 + 3, 18, 1); c.fillRect(sx - 12, y0 - 2, 3, 1); c.fillRect(sx + 9, y0 - 2, 3, 1);
       c.fillRect(sx - 12, y0 + 2, 3, 1); c.fillRect(sx + 9, y0 + 2, 3, 1); c.fillRect(sx - 13, y0 - 1, 1, 3); c.fillRect(sx + 12, y0 - 1, 1, 3);
     }
+    // 2v2: your teammate's player gets a smaller blue marker
+    for (const k of L.ctls ?? []) {
+      const U = L.uc[k];
+      if (k === L.me || !U?.roles || U.side !== L.user || !U.ctrl) continue;
+      const a = A.byEnt.get(U.ctrl);
+      if (!a) continue;
+      const [sx] = this.actorScreen(a), y0 = Math.round(drawCam.sy(a.y));
+      c.fillStyle = '#5ac8ff';
+      c.fillRect(sx - 7, y0 - 3, 14, 1); c.fillRect(sx - 7, y0 + 3, 14, 1); c.fillRect(sx - 9, y0 - 2, 2, 5); c.fillRect(sx + 7, y0 - 2, 2, 5);
+    }
     if (L.passTarget) {
       const a = A.byEnt.get(L.passTarget), [sx] = this.actorScreen(a), y0 = Math.round(drawCam.sy(a.y));
       c.fillStyle = '#ffffff'; c.fillRect(sx - 7, y0 + 3, 14, 1); c.fillRect(sx - 9, y0 + 2, 2, 1); c.fillRect(sx + 7, y0 + 2, 2, 1);
@@ -7946,8 +8037,13 @@ export function stateHash(live) {
 //     a full snapshot of the game and continues from it.
 // The host sends a fingerprint of the game every second; if the guest's copy ever differs (different
 // browsers can round some maths differently), it loads the host's snapshot.
+//
+// 2v2 (opts.multi): up to four people in one room on the Mini2K server (HubLink, everyone hears
+// everyone). Each person has a controller key ('home', 'home2', 'away', 'away2'; see SEAT_ROLES in
+// live.js). The host is one of them (or just watching) and still runs the game; every guest sends
+// its own key's buttons, and a frame carries one [bits, lag, hold] per key in `keys` order.
 
-import { LiveGame, NO_INPUT } from '@@engine/live.js@@';
+import { LiveGame, NO_INPUT, sideOfKey } from '@@engine/live.js@@';
 import { encode, decode, stateHash } from '@@net/snapshot.js@@';
 
 export const STEP = 1 / 60;
@@ -7976,9 +8072,11 @@ const EDGE_MASK = (1 << 6) | (1 << 7) | (1 << 8) | (1 << 9) | (1 << 10) | (1 << 
 
 /** Apply a request to a game copy (same call on both screens, at the same step). */
 export function applyCmd(live, c) {
+  const U = live.uc[c.s];
+  if (!U) return;
   if (c.k === 'sub') live.requestSub(c.o, c.i || null, c.s);
-  else if (c.k === 'to') live.uc[c.s].wantTimeout = true;
-  else if (c.k === 'auto') live.game.autoSubs[c.s] = !!c.on;
+  else if (c.k === 'to') U.wantTimeout = true;
+  else if (c.k === 'auto') live.game.autoSubs[U.side] = !!c.on;
 }
 
 export class Session {
@@ -7988,14 +8086,16 @@ export class Session {
    * @param data   static data index
    * @param ui     { onStart(cfg), onStatus(text), onPause(on, by), onClose(why), onLobby(info), onSnap() }
    */
-  constructor(link, role, data, ui = {}) {
+  constructor(link, role, data, ui = {}, opts = {}) {
     this.link = link; this.role = role; this.data = data; this.ui = ui;
-    this.side = role === 'host' ? 'home' : 'away';
+    this.multi = !!opts.multi;
+    this.keys = this.multi ? [] : ['home', 'away'];           // 2v2: set from the start config
+    this.key = this.multi ? null : role === 'host' ? 'home' : 'away';
+    this.side = this.key ? sideOfKey(this.key) : 'home';
+    this.gqs = new Map(); this.gHelds = new Map(); this.seen = new Map();
     this.live = null; this.tick = 0; this.cfg = null;
     this.paused = false; this.rtt = null; this.route = '?';
     // host
-    this.gq = [];               // guest intents waiting: [seenTick, bits]
-    this.gHeld = 0;             // guest's last held buttons
     this.cmds = [];             // requests for the next step
     this.out = [];              // frames not yet sent
     this.outHashes = [];
@@ -8013,30 +8113,58 @@ export class Session {
     link.onmsg = (m) => this.onMsg(m);
     link.onclose = (why) => this.ui.onClose?.(why);
     link.route().then((r) => { this.route = r; });
-    this.pingT = setInterval(() => this.link.send({ t: 'ping', ts: performance.now() }), 1000);
+    this.pingT = setInterval(() => this.link.send(this.multi && role === 'guest' ? { t: 'ping', ts: performance.now(), to: 'host', k: this.key } : { t: 'ping', ts: performance.now() }), 1000);
   }
 
-  close() { clearInterval(this.pingT); this.link.send({ t: 'bye' }); this.link.close(); }
+  close() { clearInterval(this.pingT); this.link.send({ t: 'bye', k: this.key }); this.link.close(); }
+
+  /** 2v2: which key this screen plays, from the start config (null = watching). */
+  takeKeys(cfg) {
+    if (!this.multi) return;
+    this.keys = cfg.keys;
+    this.key = Object.keys(cfg.who).find((k) => cfg.who[k] === this.link.id) ?? null;
+    this.side = this.key ? sideOfKey(this.key) : 'home';
+  }
+  /** Host, 2v2: keys whose person has not been heard from for a few seconds. */
+  staleKeys(ms = 4000) {
+    const now = performance.now();
+    return this.keys.filter((k) => k !== this.key && now - (this.seen.get(k) ?? 0) > ms);
+  }
 
   // ------------------------------------------------------------------ messages
   onMsg(m) {
     switch (m.t) {
-      case 'ping': this.link.send({ t: 'pong', ts: m.ts }); break;
-      case 'pong': this.rtt = performance.now() - m.ts; if (this.role === 'host') this.link.send({ t: 'rtt', v: this.rtt }); break;
+      case 'ping':
+        if (this.multi && m.k) this.seen.set(m.k, performance.now());
+        if (!this.multi || this.role === 'host' || m.from === 'host') this.link.send({ t: 'pong', ts: m.ts, to: m.from });
+        break;
+      case 'pong': this.rtt = performance.now() - m.ts; if (this.role === 'host' && !this.multi) this.link.send({ t: 'rtt', v: this.rtt }); break;
       case 'rtt': this.rtt = m.v; break;
       case 'lobby': this.ui.onLobby?.(m); break;
       case 'pause': this.paused = m.on; this.ui.onPause?.(m.on, m.by); break;
-      case 'bye': this.ui.onClose?.('left'); break;
+      case 'bye':
+        if (!this.multi) this.ui.onClose?.('left');
+        else if (m.from === 'host') this.ui.onClose?.('left');
+        else if (this.role === 'host') { if (m.k) this.seen.delete(m.k); this.ui.onLobbyMsg?.(m); }
+        break;
       // host side
-      case 'i': if (this.role === 'host') for (const q of m.q) this.gq.push(q); break;
-      case 'c': if (this.role === 'host') this.guestCmd(m.c); break;
-      case 'need': if (this.role === 'host' && this.live) this.sendSnap(); break;
-      case 'askpause': if (this.role === 'host') this.setPause(m.on, 'away'); break;
+      case 'i':
+        if (this.role === 'host') {
+          const k = this.multi ? m.k : 'away';
+          if (!k || k === this.key || !this.keys.includes(k)) break;
+          if (this.multi) this.seen.set(k, performance.now());
+          const q = this.gqs.get(k) ?? []; this.gqs.set(k, q);
+          for (const x of m.q) q.push(x);
+        }
+        break;
+      case 'c': if (this.role === 'host') this.guestCmd(m.c, this.multi ? m.k : 'away'); break;
+      case 'need': if (this.role === 'host' && this.live) this.sendSnap(this.multi ? m.from : undefined); break;
+      case 'askpause': if (this.role === 'host') this.setPause(m.on, this.multi ? m.k ?? 'guest' : 'away'); break;
       // guest side
       case 'start': if (this.role === 'guest') this.guestStart(m.cfg); break;
       case 'snap': if (this.role === 'guest') this.loadSnap(m); break;
       case 'f': if (this.role === 'guest') this.gotFrames(m); break;
-      default: break;
+      default: this.ui.onLobbyMsg?.(m); break;
     }
   }
 
@@ -8044,14 +8172,17 @@ export class Session {
   /** Host: start (or restart for a rejoining guest) the game with this config. */
   hostStart(live, cfg) {
     this.live = live; this.cfg = cfg; this.tick = 0;
+    this.takeKeys(cfg);
+    this.gqs.clear(); this.gHelds.clear();
+    if (this.multi) for (const k of this.keys) this.seen.set(k, performance.now());
     this.link.send({ t: 'start', cfg });
   }
-  /** Host: the guest reconnected mid-game. */
-  hostResync() { this.link.send({ t: 'start', cfg: this.cfg }); this.sendSnap(); }
+  /** Host: the guest reconnected mid-game (2v2: `to` is the one who came back). */
+  hostResync(to) { this.link.send({ t: 'start', cfg: this.cfg, to }); this.sendSnap(to); }
 
-  sendSnap() {
+  sendSnap(to) {
     this.flush();
-    this.link.send({ t: 'snap', n: this.tick, s: encode(this.live) });
+    this.link.send({ t: 'snap', n: this.tick, s: encode(this.live), to });
   }
 
   setPause(on, by) {
@@ -8061,21 +8192,23 @@ export class Session {
   }
   /** Either player can pause both screens; the guest asks the host. */
   requestPause(on) {
-    if (this.role === 'host') this.setPause(on, 'home');
-    else this.link.send({ t: 'askpause', on });
+    if (this.role === 'host') this.setPause(on, this.key ?? 'home');
+    else this.link.send(this.multi ? { t: 'askpause', on, k: this.key, to: 'host' } : { t: 'askpause', on });
   }
 
   /** Requests from this screen (subs, timeout, auto subs). */
   command(c) {
-    const cmd = { ...c, s: this.side };
+    if (!this.key) return;
+    const cmd = { ...c, s: this.key };
     if (this.role === 'host') this.cmds.push(cmd);
-    else this.link.send({ t: 'c', c: cmd });
+    else this.link.send(this.multi ? { t: 'c', c: cmd, k: this.key, to: 'host' } : { t: 'c', c: cmd });
   }
 
-  guestCmd(c) {
-    const T = this.live?.state.teams.away;
+  guestCmd(c, key) {
+    if (!key || !this.keys.includes(key) || key === this.key) return;
+    const T = this.live?.state.teams[sideOfKey(key)];
     if (!c || !T) return;
-    const cmd = { k: c.k, s: 'away' };                     // the guest can only ask for its own team
+    const cmd = { k: c.k, s: key };                        // a guest can only ask for its own team
     if (c.k === 'sub') {
       if (!T.onCourt.includes(c.o)) return;
       if (c.i && (!T.roster.includes(c.i) || T.onCourt.includes(c.i) || !this.data.byId[c.i]?.available)) return;
@@ -8086,25 +8219,47 @@ export class Session {
   }
 
   /** Host: one 60 Hz step with the host's own keys. */
+  /** Host: the next buttons of one guest key: [bits, lag ticks, hold]. */
+  takeGuest(k) {
+    const gq = this.gqs.get(k) ?? [];
+    // guest buttons: one queued intent per step (keeps taps), merge if the queue piles up
+    while (gq.length > 8) {
+      const [, b, hold] = gq.shift();
+      gq[0][1] |= b & EDGE_MASK;
+      if (hold && !gq[0][2]) gq[0][2] = hold;
+    }
+    // 2v2: someone who dropped out stops (his player stands instead of running on forever)
+    if (this.multi && !gq.length && performance.now() - (this.seen.get(k) ?? 0) > 1500) this.gHelds.set(k, 0);
+    let bits = (this.gHelds.get(k) ?? 0) & ~EDGE_MASK, lagT = 0, hold = 0;
+    const q = gq.shift();
+    if (q) { bits = q[1]; this.gHelds.set(k, q[1]); hold = q[2] | 0; lagT = Math.max(0, Math.min(MAX_LAG_TICKS, this.tick - q[0])); }
+    return [bits, lagT, hold];
+  }
+
   hostStep(myIntent) {
     const L = this.live;
-    // guest buttons: one queued intent per step (keeps taps), merge if the queue piles up
-    while (this.gq.length > 8) {
-      const [, b, hold] = this.gq.shift();
-      this.gq[0][1] |= b & EDGE_MASK;
-      if (hold && !this.gq[0][2]) this.gq[0][2] = hold;
-    }
-    let gBits = this.gHeld & ~EDGE_MASK, lagT = 0, hold = 0;
-    const q = this.gq.shift();
-    if (q) { gBits = q[1]; this.gHeld = q[1]; hold = q[2] | 0; lagT = Math.max(0, Math.min(MAX_LAG_TICKS, this.tick - q[0])); }
-    const hBits = packIntent(myIntent);
     const cmds = this.cmds; this.cmds = [];
     for (const c of cmds) applyCmd(L, c);
-    L.update(STEP, { home: unpackIntent(hBits), away: unpackIntent(gBits, lagT, hold) });
+    let f;
+    if (!this.multi) {
+      const [gBits, lagT, hold] = this.takeGuest('away');
+      const hBits = packIntent(myIntent);
+      L.update(STEP, { home: unpackIntent(hBits), away: unpackIntent(gBits, lagT, hold) });
+      f = [hBits, gBits, lagT];
+      if (cmds.length || hold) f.push(cmds.length ? cmds : 0);
+      if (hold) f.push(hold);
+    } else {
+      // [cmds or 0, then bits, lag, hold for each key]
+      f = [cmds.length ? cmds : 0];
+      const inp = {};
+      for (const k of this.keys) {
+        const r = k === this.key ? [packIntent(myIntent), 0, 0] : this.takeGuest(k);
+        inp[k] = unpackIntent(r[0], r[1], r[2]);
+        f.push(r[0], r[1], r[2]);
+      }
+      L.update(STEP, inp);
+    }
     this.tick++;
-    const f = [hBits, gBits, lagT];
-    if (cmds.length || hold) f.push(cmds.length ? cmds : 0);
-    if (hold) f.push(hold);
     this.out.push(f);
     if (this.tick % HASH_EVERY === 0) this.outHashes.push([this.tick, stateHash(L)]);
   }
@@ -8118,6 +8273,7 @@ export class Session {
 
   // ------------------------------------------------------------------ guest
   guestStart(cfg) {
+    this.takeKeys(cfg);
     this.cfg = cfg; this.tick = 0; this.buf = []; this.expect.clear(); this.waitSnap = false;
     this.ui.onStart?.(cfg);        // main creates the LiveGame and calls setLive()
   }
@@ -8134,7 +8290,7 @@ export class Session {
   loadSnap(m) {
     if (!this.live) return;
     decode(m.s, this.data, this.live);          // in place: the renderer keeps its players
-    this.live.user = this.side;
+    this.live.user = this.side; this.live.me = this.key;
     this.tick = m.n;
     this.buf = this.buf.filter((x) => x.n > m.n);
     for (const k of this.expect.keys()) if (k <= m.n) this.expect.delete(k);
@@ -8144,9 +8300,16 @@ export class Session {
 
   /** Play one received frame on the guest's copy. */
   playFrame(fr) {
-    const [hb, ab, lagT, cmds, hold] = fr.f;
-    if (cmds) for (const c of cmds) applyCmd(this.live, c);
-    this.live.update(STEP, { home: unpackIntent(hb), away: unpackIntent(ab, lagT, hold) });
+    if (this.multi) {
+      const f = fr.f, inp = {};
+      if (f[0]) for (const c of f[0]) applyCmd(this.live, c);
+      this.keys.forEach((k, j) => { inp[k] = unpackIntent(f[1 + j * 3], f[2 + j * 3], f[3 + j * 3]); });
+      this.live.update(STEP, inp);
+    } else {
+      const [hb, ab, lagT, cmds, hold] = fr.f;
+      if (cmds) for (const c of cmds) applyCmd(this.live, c);
+      this.live.update(STEP, { home: unpackIntent(hb), away: unpackIntent(ab, lagT, hold) });
+    }
     this.tick = fr.n;
     const want = this.expect.get(fr.n);
     if (want !== undefined) {
@@ -8158,7 +8321,7 @@ export class Session {
   needSnap() {
     if (this.waitSnap) return;
     this.waitSnap = true; this.buf = [];
-    this.link.send({ t: 'need' });
+    this.link.send(this.multi ? { t: 'need', to: 'host' } : { t: 'need' });
   }
 
   /**
@@ -8171,13 +8334,13 @@ export class Session {
     let n = 0;
     while (this.inAcc >= STEP && n++ < 8) {
       this.inAcc -= STEP;
-      const bits = inputOn ? packIntent(keys.snapshot()) : 0;
+      const bits = inputOn && this.key ? packIntent(keys.snapshot()) : 0;
       if (bits & SHOOT_BIT) { this.holdN++; this.iq.push([this.tick, bits]); }
       else { this.iq.push(this.holdN ? [this.tick, bits, this.holdN] : [this.tick, bits]); this.holdN = 0; }
       keys.clearEdges();
     }
     if (this.inAcc > STEP) this.inAcc = 0;
-    if (this.iq.length && !this.paused && this.live?.phase !== 'final') this.link.send({ t: 'i', q: this.iq });
+    if (this.iq.length && !this.paused && this.live?.phase !== 'final' && this.key) this.link.send(this.multi ? { t: 'i', q: this.iq, k: this.key, to: 'host' } : { t: 'i', q: this.iq });
     this.iq = [];
     if (!this.live || this.waitSnap) return 1;
 
@@ -8214,7 +8377,7 @@ export class Session {
    * not on the replica, which is a few steps behind. Nothing here touches the game state.
    */
   viewMeters() {
-    const L = this.live, me = L.uc[this.side]?.ctrl, holding = this.holdN > 0;
+    const L = this.live, me = this.key ? L.uc[this.key]?.ctrl : null, holding = this.holdN > 0;
     const t = (this.holdN + this.inAcc / STEP) / 60;
     // shot meter
     let vm = null;
@@ -8230,7 +8393,7 @@ export class Session {
     // free throw meter
     const fm = L.ftMeter;
     let vf = fm;
-    if (fm && L.ftLine?.side === this.side) {
+    if (fm && this.key && L.ctlOf(L.ftLine?.shooter) === this.key) {
       if (fm === this.relFt) vf = null;
       else if (holding && (fm.active || fm.armed)) vf = { ...fm, active: true, t: Math.min(t, fm.dur * 1.18) };
       else if (fm.active) vf = { ...fm, t: 0, active: false };     // replica still has it held: show the idle meter
@@ -8243,13 +8406,19 @@ export class Session {
 
 }
 
-/** Two-player game copy for an online game (both screens build it the same way). */
-export function makeOnlineGame(data, cfg, side) {
+/**
+ * Game copy for an online game (every screen builds it the same way). `key` is who this screen is:
+ * 'home'/'away' in a two-player game; a seat key ('home', 'home2', 'away', 'away2') or null
+ * (watching) in 2v2.
+ */
+export function makeOnlineGame(data, cfg, key) {
   const live = new LiveGame(data, {
     home: cfg.home, away: cfg.away, user: 'both', difficulty: cfg.difficulty, seed: cfg.seed,
     rules: { quarterMinutes: cfg.quarter, difficulty: cfg.difficulty },
+    seats: cfg.mode === '2v2' ? cfg.keys : undefined,
   });
-  live.user = side;
+  live.user = key ? sideOfKey(key) : 'home';
+  live.me = key;
   return live;
 }
 export { NO_INPUT };
@@ -8595,6 +8764,58 @@ export async function unpackCode(code) {
   const bin = Uint8Array.from(atob(s.slice(1)), (c) => c.charCodeAt(0));
   return JSON.parse(new TextDecoder().decode(await pipe(bin, new DecompressionStream('deflate-raw'))));
 }
+
+// ------------------------------------------------------------------ 2v2: one room, everyone hears everyone
+
+/**
+ * The 2v2 room: up to four screens (plus anyone watching) in one room on the Mini2K server. Every
+ * message goes to everyone in the room; a message with `to` is only for that screen (the others
+ * drop it here). Each message says who sent it (`from`). The room creator's id is 'host'.
+ * 'local' uses a BroadcastChannel instead (tabs of one browser, for testing).
+ * If the server connection drops, it comes back by itself (onreopen) and only gives up after ~30 s.
+ */
+export class HubLink {
+  constructor(kind, base, code, id) {
+    this.kind = kind; this.base = base; this.room = 'mini2k-4-' + code; this.id = id;
+    this.onmsg = null; this.onclose = null; this.onreopen = null; this.oncount = null;
+    this.closed = false; this.ws = null; this.bc = null; this.n = 0;
+  }
+  async connect() {
+    if (this.kind === 'local') {
+      this.bc = new BroadcastChannel(this.room);
+      this.bc.onmessage = (e) => this.recv(e.data);
+      return this;
+    }
+    const ws = await openWs(this.base, this.room);
+    this.ws = ws;
+    ws.onmessage = (e) => this.recv(e.data);
+    ws.onclose = () => { if (this.ws === ws && !this.closed) this.reopen(); };
+    return this;
+  }
+  async reopen() {
+    for (let i = 0; i < 20 && !this.closed; i++) {
+      await new Promise((r) => setTimeout(r, 1500));
+      try { await this.connect(); this.onreopen?.(); return; } catch { /* keep trying */ }
+    }
+    this.fireClose('closed');
+  }
+  recv(raw) {
+    let m; try { m = JSON.parse(raw); } catch { return; }
+    if (m.t === '_n') { this.n = m.n; this.oncount?.(m.n); return; }
+    if (m.from === this.id || (m.to && m.to !== this.id)) return;
+    this.onmsg?.(m);
+  }
+  get open() { return !this.closed && (this.kind === 'local' ? !!this.bc : this.ws?.readyState === 1); }
+  send(m) {
+    if (!this.open) return false;
+    const s = JSON.stringify({ ...m, from: this.id });
+    if (this.kind === 'local') this.bc.postMessage(s); else this.ws.send(s);
+    return true;
+  }
+  async route() { return this.kind === 'local' ? 'local' : 'server'; }
+  fireClose(why) { if (this.closed) return; this.closed = true; this.onclose?.(why); }
+  close() { this.closed = true; try { this.ws?.close(); this.bc?.close(); } catch { /* gone */ } }
+}
 </script>
 <script type="text/plain" data-mod="main.js">// Browser entry: loads data, runs the fixed 60 Hz update loop, renders with Canvas 2D
 // (pixel-art broadcast view in src/render, or the old top-down view as "classic").
@@ -8606,7 +8827,7 @@ export async function unpackCode(code) {
 //   &intro=0 skips the lineup card, &view=classic uses the top-down view
 
 import { buildIndex } from '@@engine/data.js@@';
-import { LiveGame } from '@@engine/live.js@@';
+import { LiveGame, SEAT_KEYS } from '@@engine/live.js@@';
 import { deriveBoxScore } from '@@engine/boxscore.js@@';
 import { Keyboard } from '@@ui/input.js@@';
 import { render, VIEW } from '@@ui/render.js@@';
@@ -8615,7 +8836,7 @@ import { Sound } from '@@render/audio.js@@';
 import { SW, SH } from '@@render/view.js@@';
 import { loadPixelFonts } from '@@ui/pixelfont.js@@';
 import { Session, makeOnlineGame } from '@@net/session.js@@';
-import { makeSignal, newRoomCode, cleanCode, iceServers, hostOffer, guestAnswer, packCode, unpackCode, mergeIce, hasTurn, relayCount, serverBase, DEFAULT_SERVER, wakeServer, ServerLink, newPipeId } from '@@net/peer.js@@';
+import { makeSignal, newRoomCode, cleanCode, iceServers, hostOffer, guestAnswer, packCode, unpackCode, mergeIce, hasTurn, relayCount, serverBase, DEFAULT_SERVER, wakeServer, ServerLink, newPipeId, HubLink } from '@@net/peer.js@@';
 
 loadPixelFonts();
 if (window.__MINI2K_DATA) document.querySelector('.head a')?.remove();   // the one-file build has no roster page
@@ -8728,7 +8949,7 @@ function begin(L) {
   broadcast.attach(live); broadcast.prewarm();
   window.__broadcast = broadcast;
   intro = params.get('intro') === '0' || settings.view === 'classic' ? null : { t: 0, dur: user ? 9 : 3.5 };
-  $('menu').hidden = true; $('pause').hidden = true; $('final').hidden = true; $('online').hidden = true;
+  $('menu').hidden = true; $('pause').hidden = true; $('final').hidden = true; $('online').hidden = true; $('online2').hidden = true;
   $('pauseOnline').hidden = !net;
   canvas.focus?.();
 }
@@ -8743,7 +8964,7 @@ $('btnDemo').addEventListener('click', () => start({
 }));
 
 function setPaused(v) {
-  if (!live || live.phase === 'final' || !$('menu').hidden || !$('online').hidden) return;
+  if (!live || live.phase === 'final' || !$('menu').hidden || !$('online').hidden || !$('online2').hidden) return;
   paused = v;                  // online: only opens the menu, the game keeps running
   if (v) { toPanel = null; pauseMode(false); renderCoach(); }
   $('pause').hidden = !v;
@@ -8825,7 +9046,7 @@ function pauseMode(timeout) {
 function timeoutPanel() {
   const q = live?.phase === 'anim' ? live.queue[0] : null;
   const st = q?.started && q.k === 'timeout' && live.user ? q : null;
-  if (st && !paused && $('menu').hidden && $('online').hidden) {
+  if (st && !paused && $('menu').hidden && $('online').hidden && $('online2').hidden) {
     if (!toPanel || toPanel.st !== st) {
       toPanel = { st, closed: false };
       pauseMode(true); renderCoach(); $('pause').hidden = false;
@@ -8867,10 +9088,11 @@ $('btnResume').addEventListener('click', () => {
   if (toPanel && !paused) { toPanel.closed = true; $('pause').hidden = true; pauseMode(false); canvas.focus?.(); return; }   // timeout screen: just close it
   setPaused(false);
 });
-$('btnQuit').addEventListener('click', () => { live = null; paused = false; $('pause').hidden = true; leaveOnline(); $('menu').hidden = false; });
+$('btnQuit').addEventListener('click', () => { live = null; paused = false; $('pause').hidden = true; leaveOnline(); leave2v2(); $('menu').hidden = false; });
 $('btnAgain').addEventListener('click', () => {
   live = null; $('final').hidden = true;
-  if (net) { showOnline(); onlineConnected(); } else $('menu').hidden = false;
+  if (net?.multi) show2v2Lobby();
+  else if (net) { showOnline(); onlineConnected(); } else $('menu').hidden = false;
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden && live && live.user && !net) setPaused(true); });
 
@@ -9291,7 +9513,7 @@ function netMessage(text, button = null, onClick = null) {
 function onNetClosed(why) {
   if (!net) return;
   const role = net.role;
-  if (live && live.phase !== 'final' && $('online').hidden) {
+  if (live && live.phase !== 'final' && $('online').hidden && $('online2').hidden) {
     if (role === 'host') {
       net.paused = true;
       const canRejoin = lobby?.sig && lobby.via !== 'manual';
@@ -9319,10 +9541,278 @@ setInterval(() => {
   if (!net.route || net.route === '?') net.link.route().then((r) => { net.route = r; });
   const ms = net.rtt != null ? `${Math.round(net.rtt)} MS` : '...';
   const behind = net.role === 'guest' ? net.buf.length : 0;
-  b.textContent = `ONLINE · ${net.side === 'home' ? 'HOME' : 'AWAY'} · ${ms}${net.route === 'relay' ? ' · RELAY' : net.route === 'server' ? ' · SERVER' : ''}${behind > 6 ? ' · CATCHING UP' : ''}`;
-  b.classList.toggle('bad', net.link.closed || (net.rtt ?? 0) > 200);
+  const who = net.multi ? (net.key ? `${net.side === 'home' ? 'HOME' : 'AWAY'} ${/2$/.test(net.key) ? 'SG SF PF' : 'PG C'}` : 'WATCHING') : net.side === 'home' ? 'HOME' : 'AWAY';
+  const gone = net.multi && net.role === 'host' && live.phase !== 'final' ? net.staleKeys().map((k) => net.cfg?.names?.[k] ?? k) : [];
+  b.textContent = `ONLINE · ${who} · ${ms}${gone.length ? ` · WAITING FOR ${gone.join(', ').toUpperCase()} (CODE ${lobby2?.code ?? ''})` : ''}${net.route === 'relay' ? ' · RELAY' : net.route === 'server' ? ' · SERVER' : ''}${behind > 6 ? ' · CATCHING UP' : ''}`;
+  b.classList.toggle('bad', net.link.closed || (net.rtt ?? 0) > 200 || gone.length > 0);
 }, 500);
 window.__netDebug = () => net && { role: net.role, tick: net.tick, buf: net.buf?.length, stats: net.stats, rtt: net.rtt, route: net.route };
+
+
+// ====================================================================== 2v2 online
+// Up to four people in one room on the Mini2K server (HubLink). The room creator keeps the lobby
+// (who sits where, both teams) and runs the game; see Session (multi) in src/net/session.js.
+// Seats: 'home'/'away' run the PG and C, 'home2'/'away2' the SG, SF and PF. Empty seats are CPU.
+let lobby2 = null;         // { role, code, via, id, st, hb }
+const SEAT_NAME = { home: 'PG + C', home2: 'SG + SF + PF', away: 'PG + C', away2: 'SG + SF + PF' };
+for (const sel of [$('o2TeamHome'), $('o2TeamAway')]) {
+  for (const id of teamIds) {
+    const o = document.createElement('option');
+    o.value = id; o.textContent = `${data.teams[id].name} (${Math.round(data.teams[id].team_overall)})`;
+    sel.appendChild(o);
+  }
+}
+try { $('o2Name').value = localStorage.getItem('mini2k.name') ?? ''; } catch { /* private mode */ }
+const o2Status = (t, bad = false) => { $('o2Status').textContent = t; $('o2Status').classList.toggle('bad', bad); };
+const myName = () => ($('o2Name').value.trim() || 'Player').slice(0, 12);
+
+function o2Reset() {
+  $('o2Choose').hidden = false; $('o2Room').hidden = true; $('o2Seats').hidden = true;
+  $('btnO2Start').hidden = true; $('o2Match').textContent = ''; o2Status('');
+  for (const id of ['o2Via', 'o2Code', 'btnO2Host', 'btnO2Join', 'o2Name']) $(id).disabled = false;
+  $('o2Q').disabled = $('o2Diff').disabled = false;
+}
+function show2v2Lobby() {
+  $('menu').hidden = true; $('online2').hidden = false;
+  if (lobby2) render2v2();
+}
+$('btnOnline2').addEventListener('click', () => {
+  o2Reset();
+  $('o2TeamHome').value = $('selUser').value; $('o2TeamAway').value = $('selOpp').value;
+  $('o2Q').value = $('selQ').value; $('o2Diff').value = $('selDiff').value;
+  show2v2Lobby();
+  if (srv.base && !srv.ok && srv.done) checkServer();
+});
+$('btnO2Leave').addEventListener('click', () => { leave2v2(); $('online2').hidden = true; $('menu').hidden = false; });
+
+function leave2v2() {
+  if (!lobby2) return;
+  clearInterval(lobby2.hb);
+  if (net?.multi) { try { net.close(); } catch { /* gone */ } net = null; }
+  else lobby2.link?.close();
+  lobby2 = null;
+  $('netBadge').hidden = true; $('netMsg').hidden = true; $('pauseOnline').hidden = true;
+  o2Reset();
+}
+
+/** The Mini2K server to use for 2v2: the working one, else the one typed in Network settings (or built in). */
+async function hubBase() {
+  if (srv.checking) await srv.checking;
+  if (srv.ok) return srv.base;
+  const base = serverBase(netCfg.serverUrl);
+  o2Status('Waking up the Mini2K server (free hosting sleeps when nobody plays; this can take up to a minute)...');
+  if (!(await wakeServer(base, 75000))) throw new Error('The Mini2K server is not answering. Check its address in Network settings (Play a friend online screen).');
+  return base;
+}
+
+async function open2v2(role, code) {
+  try { localStorage.setItem('mini2k.name', myName()); } catch { /* ignore */ }
+  for (const id of ['o2Via', 'o2Code', 'btnO2Host', 'btnO2Join', 'o2Name']) $(id).disabled = true;
+  $('o2Q').disabled = $('o2Diff').disabled = role !== 'host';
+  const via = $('o2Via').value;
+  const id = role === 'host' ? 'host' : `p-${rid()}`;
+  lobby2 = { role, code, via, id, st: null, hb: null, link: null };
+  const L2 = lobby2;
+  o2Status(role === 'host' ? 'Setting up the room...' : 'Looking for the room...');
+  let link;
+  try {
+    const base = via === 'local' ? '' : await hubBase();
+    link = new HubLink(via, base, code, id);
+    await link.connect();
+  } catch (e) { if (lobby2 === L2) { o2Status(e.message, true); for (const x of ['o2Via', 'o2Code', 'btnO2Host', 'btnO2Join', 'o2Name']) $(x).disabled = false; lobby2 = null; } return; }
+  if (lobby2 !== L2) { link.close(); return; }
+  L2.link = link;
+  $('o2Choose').hidden = true; $('o2Room').hidden = false; $('o2RoomCode').textContent = code;
+  net = new Session(link, role, data, {
+    onStart: (cfg) => { L2.needSync = false; $('netMsg').hidden = true; begin(makeOnlineGame(data, cfg, net.key)); net.setLive(live); },
+    onLobbyMsg: (m) => on2v2Msg(m),
+    onPause: (on, by) => netMessage(on ? `Paused by ${by === net.key ? 'you' : (net.cfg?.names?.[by] ?? 'a friend')}.` : '', on ? 'Resume game' : null, () => net.requestPause(false)),
+    onClose: (why) => on2v2Closed(why),
+  }, { multi: true });
+  window.__net = net;
+  link.onclose = (why) => on2v2Closed(why);
+  if (role === 'host') {
+    L2.st = { players: [{ id, name: myName(), t: performance.now() }], who: { home: id, home2: null, away: null, away2: null }, teams: { home: $('o2TeamHome').value, away: $('o2TeamAway').value }, q: Number($('o2Q').value), diff: $('o2Diff').value };
+    if (L2.st.teams.home === L2.st.teams.away) L2.st.teams.away = teamIds.find((t) => t !== L2.st.teams.home);
+    o2Status('Room is open. Waiting for friends to join...');
+    // drop people who closed the page without saying bye (lobby only; in a game their seat waits for them)
+    L2.hb = setInterval(() => {
+      if (lobby2 !== L2 || (live && live.phase !== 'final')) return;
+      const now = performance.now(), before = L2.st.players.length;
+      L2.st.players = L2.st.players.filter((p) => p.id === 'host' || now - p.t < 9000);
+      if (L2.st.players.length !== before) { for (const k of SEAT_KEYS) if (L2.st.who[k] && !L2.st.players.some((p) => p.id === L2.st.who[k])) L2.st.who[k] = null; send2v2Lobby(); }
+    }, 3000);
+    send2v2Lobby();
+  } else {
+    // say hello until the room creator answers, then keep saying it (so the lobby knows we are here)
+    // sync: we need the game sent (came back after a drop, or joined a game already playing)
+    const hello = () => { if (lobby2 === L2) link.send({ t: 'hello2', name: myName(), to: 'host', sync: !!L2.needSync || !net?.live }); };
+    hello();
+    L2.hb = setInterval(() => {
+      hello();
+      if (!L2.st && performance.now() - L2.t0 > 20000) o2Status('No room with that code answered. Check the code, and that your friend pressed Create room.', true);
+    }, 2500);
+    L2.t0 = performance.now();
+    link.onreopen = () => { L2.needSync = true; hello(); };       // back after a drop: the room creator sends the game again
+  }
+  render2v2();
+}
+$('btnO2Host').addEventListener('click', () => open2v2('host', newRoomCode()));
+$('btnO2Join').addEventListener('click', () => {
+  const code = cleanCode($('o2Code').value);
+  if (code.length < 4) { o2Status('Type the room code first.', true); return; }
+  open2v2('guest', code);
+});
+$('o2Code').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnO2Join').click(); });
+
+function send2v2Lobby() {
+  if (!lobby2 || lobby2.role !== 'host' || !net) return;
+  const st = lobby2.st;
+  st.q = Number($('o2Q').value); st.diff = $('o2Diff').value;
+  net.link.send({ t: 'lobby2', st: pubLobby() });
+  render2v2();
+}
+const pubLobby = () => { const st = lobby2.st; return { players: st.players.map((p) => ({ id: p.id, name: p.name })), who: st.who, teams: st.teams, q: st.q, diff: st.diff }; };
+for (const id of ['o2Q', 'o2Diff']) $(id).addEventListener('change', () => send2v2Lobby());
+
+/** Host: someone asks to change something in the lobby. `from` is who asked. */
+function host2v2Change(from, m) {
+  const st = lobby2.st;
+  const p = st.players.find((x) => x.id === from);
+  if (!p) return;
+  if (m.t === 'seat') {
+    const k = m.k;
+    if (k && !SEAT_KEYS.includes(k)) return;
+    if (k && st.who[k] && st.who[k] !== from) return;               // taken
+    for (const s of SEAT_KEYS) if (st.who[s] === from) st.who[s] = null;
+    if (k) st.who[k] = from;
+  } else if (m.t === 'team') {
+    if (!['home', 'away'].includes(m.side) || !data.teams[m.team]) return;
+    const mineSide = SEAT_KEYS.some((s) => st.who[s] === from && s.startsWith(m.side));
+    if (from !== 'host' && !mineSide) return;                        // only someone on that team (or the creator)
+    st.teams[m.side] = m.team;
+  }
+  send2v2Lobby();
+}
+
+function on2v2Msg(m) {
+  const L2 = lobby2;
+  if (!L2) return;
+  if (L2.role === 'host') {
+    if (m.t === 'hello2') {
+      const st = L2.st, inGame = live && live.phase !== 'final' && net.live === live;
+      let p = st.players.find((x) => x.id === m.from);
+      if (!p) {
+        p = { id: m.from, name: String(m.name ?? 'Player').slice(0, 12) };
+        st.players.push(p);
+        if (!inGame) send2v2Lobby();
+      }
+      // a reloaded page comes back with a new id: give it its old seat (same name, that seat gone quiet)
+      if (inGame && !Object.values(net.cfg.who).includes(m.from)) {
+        const old = net.staleKeys(1500).find((k) => (net.cfg.names?.[k] ?? '') === p.name);
+        if (old) {
+          const oldId = net.cfg.who[old];
+          net.cfg.who[old] = m.from; st.who[old] = m.from;
+          st.players = st.players.filter((x) => x.id !== oldId);
+          p.syncT = 0; m.sync = true;
+        }
+      }
+      p.t = performance.now();
+      // back in the middle of a game (or watching one that already started): send it the game
+      if (inGame && m.sync && (!p.syncT || p.t - p.syncT > 4000)) { p.syncT = p.t; net.hostResync(m.from); }
+      if (!inGame) net.link.send({ t: 'lobby2', st: pubLobby(), to: m.from });
+      return;
+    }
+    if (m.t === 'seat' || m.t === 'team') { if (!(live && live.phase !== 'final')) host2v2Change(m.from, m); return; }
+    if (m.t === 'bye') {
+      const st = L2.st;
+      if (live && live.phase !== 'final') return;
+      st.players = st.players.filter((x) => x.id !== m.from);
+      for (const k of SEAT_KEYS) if (st.who[k] === m.from) st.who[k] = null;
+      send2v2Lobby();
+    }
+    return;
+  }
+  if (m.t === 'lobby2' && m.from === 'host') {
+    if (!L2.st) o2Status('In the room. Pick a spot.');
+    L2.st = m.st;
+    if (!$('online2').hidden) render2v2();
+  }
+}
+
+function render2v2() {
+  const L2 = lobby2;
+  if (!L2) return;
+  const st = L2.st, host = L2.role === 'host';
+  $('o2Seats').hidden = !st;
+  $('btnO2Start').hidden = !host;
+  if (!st) return;
+  const nameOf = (id) => st.players.find((p) => p.id === id)?.name ?? '?';
+  for (const b of document.querySelectorAll('#o2Seats button.seat')) {
+    const k = b.dataset.k, who = st.who[k];
+    b.innerHTML = '';
+    const t = document.createElement('b'); t.textContent = `${SEAT_NAME[k]}: `;
+    b.append(t, document.createTextNode(who ? `${nameOf(who)}${who === L2.id ? ' (you)' : ''}` : 'open (CPU) · sit here'));
+    b.classList.toggle('mine', who === L2.id);
+    b.disabled = !!who && who !== L2.id;
+  }
+  $('o2TeamHome').value = st.teams.home; $('o2TeamAway').value = st.teams.away;
+  const mySide = (side) => SEAT_KEYS.some((k) => st.who[k] === L2.id && k.startsWith(side));
+  $('o2TeamHome').disabled = !(host || mySide('home'));
+  $('o2TeamAway').disabled = !(host || mySide('away'));
+  if (!host) { $('o2Q').value = String(st.q); $('o2Diff').value = st.diff; }
+  const seated = SEAT_KEYS.filter((k) => st.who[k]);
+  const watching = st.players.filter((p) => !Object.values(st.who).includes(p.id)).map((p) => p.name);
+  const same = st.teams.home === st.teams.away;
+  $('o2Match').textContent = `${teamName(st.teams.away)} at ${teamName(st.teams.home)}, ${st.q} min quarters. ${st.players.length} in the room${watching.length ? ` (watching: ${watching.join(', ')})` : ''}.${same ? ' Pick different teams.' : ''}${host ? '' : ' The room creator tips off.'}`;
+  $('btnO2Start').disabled = same || !seated.length;
+}
+for (const b of document.querySelectorAll('#o2Seats button.seat')) {
+  b.addEventListener('click', () => {
+    const L2 = lobby2;
+    if (!L2?.st || (live && live.phase !== 'final')) return;
+    const k = L2.st.who[b.dataset.k] === L2.id ? null : b.dataset.k;       // click your own seat to stand up
+    if (L2.role === 'host') host2v2Change('host', { t: 'seat', k });
+    else net.link.send({ t: 'seat', k, to: 'host' });
+  });
+}
+for (const [id, side] of [['o2TeamHome', 'home'], ['o2TeamAway', 'away']]) {
+  $(id).addEventListener('change', () => {
+    const L2 = lobby2;
+    if (!L2?.st) return;
+    if (L2.role === 'host') host2v2Change('host', { t: 'team', side, team: $(id).value });
+    else net.link.send({ t: 'team', side, team: $(id).value, to: 'host' });
+  });
+}
+
+$('btnO2Start').addEventListener('click', () => {
+  const L2 = lobby2;
+  if (!L2 || L2.role !== 'host' || !net) return;
+  const st = L2.st;
+  if (st.teams.home === st.teams.away) return;
+  const who = {}, names = {};
+  for (const k of SEAT_KEYS) if (st.who[k]) { who[k] = st.who[k]; names[k] = st.players.find((p) => p.id === st.who[k])?.name ?? k; }
+  if (!Object.keys(who).length) return;
+  const cfg = { mode: '2v2', home: st.teams.home, away: st.teams.away, seed: Math.floor(Math.random() * 1e9) + 1, quarter: Number($('o2Q').value), difficulty: $('o2Diff').value, keys: Object.keys(who), who, names };
+  netMessage('');
+  begin(makeOnlineGame(data, cfg, Object.keys(who).find((k) => who[k] === 'host') ?? null));
+  net.hostStart(live, cfg);
+});
+
+function on2v2Closed(why) {
+  if (!net?.multi) return;
+  if (net.role === 'guest' && why === 'left') {
+    net.paused = true;
+    if (live && live.phase !== 'final' && $('online2').hidden) netMessage('The room creator left the game.', 'Quit to menu', () => $('btnQuit').click());
+    else o2Status('The room creator closed the room.', true);
+    return;
+  }
+  // the server connection could not come back
+  net.paused = true;
+  if (live && live.phase !== 'final' && $('online2').hidden) netMessage('Lost the connection to the Mini2K server.', 'Quit to menu', () => $('btnQuit').click());
+  else o2Status('Lost the connection to the Mini2K server.', true);
+}
+window.__lobby2 = () => lobby2 && { role: lobby2.role, code: lobby2.code, st: lobby2.st };
 </script>
 <script type="module">
 window.__MINI2K_DATA = JSON.parse(document.getElementById('mini2k-data').textContent);

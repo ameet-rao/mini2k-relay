@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 const PORT = Number(process.env.PORT) || 8080;
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 const PAGE = path.join(DIR, 'public', 'index.html');
-const MAX_IN_ROOM = 4;            // host, guest, and a stale tab or a rejoin
+const MAX_IN_ROOM = 8;            // 2v2: four players, someone watching, and a stale tab or a rejoin
 const MAX_MSG = 2 * 1024 * 1024;  // one message (a full game snapshot is well under this)
 const MAX_RATE = 3000;            // messages per 10 s per connection (the game sends about 130 a second)
 const MAX_CONN = 400;             // whole server
