@@ -2026,6 +2026,24 @@ const perceived = (input, t) => (input.hold > 0
   ? clamp(input.hold / 60, t - MAX_LAG, t + MAX_LAG)
   : t - lagOf(input));
 
+/**
+ * Local shot meter (online guest). The guest's own screen runs the meter and decides the result the
+ * moment Space is let go; it sends that result (`input.res`) with the release, inside the normal input
+ * stream, so the host and every screen apply the very same result at the very same step. Lag can delay
+ * the shot, never change it: a green on the guest's screen is a green.
+ */
+export const RES = { FAKE: 1, GREEN: 2, ORANGE: 3, EARLY: 4, LATE: 5 };
+/** Which part of the meter a release lands in (shared by the engine and the guest's local meter). */
+export function meterZone(m, rel, ft = false) {
+  const hasGreen = ft || (m.green ?? 0) > 0, hasOrange = ft || (m.orange ?? 0) > 0;
+  if (hasGreen && rel >= m.greenStart && rel <= m.greenEnd) return RES.GREEN;
+  if (hasOrange && rel >= m.orangeStart && rel < m.greenStart) return RES.ORANGE;
+  if (rel > (hasGreen ? m.greenEnd : 1.0)) return RES.LATE;
+  return RES.EARLY;
+}
+/** A remote player's meter waits this long past the top for their release before the host lets it go. */
+const NET_GRACE = 1.5;
+
 export class LiveGame {
   /**
    * @param data  buildIndex(...) result
@@ -2553,13 +2571,21 @@ export class LiveGame {
       if (holder === ctrl) {
         if (input.pick && !this.meter) this.callPick(holder);
         if (!input.shoot) this.needRelease = false;
-        if (this.meter) {
+        if (input.res) {
+          // online guest: its own screen timed the meter and already decided the result
+          if (!this.meter) this.startMeter(holder);
+          else { this.meter.t += dt; this.meterContest(holder); }
+          if (input.res === RES.FAKE) { if (holder.fakeT != null && this.time - holder.fakeT < FAKE_COOLDOWN) this.meter = null; else this.pumpFake(holder); }
+          else { this.releaseMeter(input.hold / 60, input.res); return true; }
+        } else if (this.meter) {
           this.meter.t += dt;
           this.meterContest(holder);
           const pt = perceived(input, this.meter.t);
+          // A remote player's own screen lets go of the meter (and says so); here we only wait for it.
+          const cap = this.meter.dur * 1.18 + (input.net ? NET_GRACE : lagOf(input));
           // A very light tap is a pump fake; holding and letting go is the shot.
           if (!input.shoot && pt < TAP_FAKE) { if (holder.fakeT != null && this.time - holder.fakeT < FAKE_COOLDOWN) this.meter = null; else this.pumpFake(holder); }
-          else if (!input.shoot || this.meter.t >= this.meter.dur * 1.18 + lagOf(input)) { this.releaseMeter(input.shoot ? this.meter.t - lagOf(input) : pt); return true; }
+          else if (!input.shoot || this.meter.t >= cap) { this.releaseMeter(input.shoot ? this.meter.t - (input.net ? NET_GRACE : lagOf(input)) : pt); return true; }
         } else if (input.shoot && !this.needRelease) this.startMeter(holder);
         else if ((input.move || input.spin) && this.dribbleMove(holder, input) === 'stolen') return true;
         else if (input.pass && this.passTarget) { this.pass(holder, this.passTarget); return true; }
@@ -3188,29 +3214,27 @@ export class LiveGame {
   }
 
   /** @param pt the time on the meter as the shooter saw it when letting go (seconds) */
-  releaseMeter(pt) {
+  releaseMeter(pt, res = 0) {
     const m = this.meter, h = this.ball.holder;
     this.meter = null;
     const rel = Math.max(0, pt) / m.dur;
     let label, color, makeProb, forceMade;
+    const zone = res || meterZone(m, rel);
 
-    const hasGreen = (m.green ?? 0) > 0;
-    const hasOrange = (m.orange ?? 0) > 0;
-
-    if (hasGreen && rel >= m.greenStart && rel <= m.greenEnd) {
+    if (zone === RES.GREEN) {
       // 1. Green bar: at the top and smaller, guaranteed in (even if smothered)
       label = 'GREEN!';
       color = '#39e06a';
       makeProb = 1.0;
       forceMade = true;
       this.lastGreen = true;
-    } else if (hasOrange && rel >= m.orangeStart && rel < m.greenStart) {
+    } else if (zone === RES.ORANGE) {
       // 2. Orange bar: dynamically dependent on coverage, location, distance, ratings
       label = 'SLIGHTLY EARLY';
       color = '#ff9a3a';
       makeProb = this.calcOrangeProb(h, m);
       forceMade = null;
-    } else if (rel > (hasGreen ? m.greenEnd : 1.0)) {
+    } else if (zone === RES.LATE) {
       // 3. Overshot green: guaranteed miss
       label = 'VERY LATE';
       color = '#ff4a3a';
@@ -3471,28 +3495,32 @@ export class LiveGame {
     const g = this.game, m = this.ftMeter, sh = this.ftLine.shooter;
     let go = false, prob = null;
     if (m) {
+      const wasActive = m.active;
       if (!m.active) {
         m.wait += dt;
         if (!input.shoot) m.armed = true;
         else if (m.armed) m.active = true;
         if (m.wait > 8) go = true;                  // took too long: he shoots it himself
-      } else {
-        const lag = lagOf(input);
+      }
+      if (wasActive || input.res) {
+        const lag = input.net ? NET_GRACE : lagOf(input);
         m.t += dt;
-        if (!input.shoot || m.t >= m.dur * 1.18 + lag) {
-          const rel = Math.max(0, input.shoot ? m.t - lag : perceived(input, m.t)) / m.dur;
+        if (input.res || !input.shoot || m.t >= m.dur * 1.18 + lag) {
+          // online guest: its own screen timed it (input.res); otherwise judge it here
+          const rel = input.res ? input.hold / 60 / m.dur : Math.max(0, input.shoot ? m.t - lag : perceived(input, m.t)) / m.dur;
+          const zone = input.res && input.res !== RES.FAKE ? input.res : meterZone(m, rel, true);
           const base = M.freeThrowProb(this.p(sh.id), this.energy(sh));
           let label, color;
-          if (rel >= m.greenStart && rel <= m.greenEnd) {
+          if (zone === RES.GREEN) {
             prob = 1.0;
             label = 'GREEN!';
             color = '#39e06a';
             this.lastGreen = true;
-          } else if (rel >= m.orangeStart && rel < m.greenStart) {
+          } else if (zone === RES.ORANGE) {
             prob = base;
             label = 'SLIGHTLY EARLY';
             color = '#ff9a3a';
-          } else if (rel > m.greenEnd) {
+          } else if (zone === RES.LATE) {
             prob = 0.0;
             label = 'VERY LATE';
             color = '#ff4a3a';
@@ -4044,7 +4072,8 @@ function roundRect(ctx, x, y, w, h, r) {
 
 function drawPlayer(ctx, live, e, kit, opts) {
   const p = live.p(e.id);
-  const x = X(e.x), y = Y(e.y), r = 15;
+  const pr = live.pred?.e === e ? live.pred : e;   // online guest: its own player where it predicts him
+  const x = X(pr.x), y = Y(pr.y), r = 15;
   // shadow
   ctx.fillStyle = 'rgba(0,0,0,0.28)';
   ctx.beginPath(); ctx.ellipse(x + 2, y + 5, r, r * 0.55, 0, 0, Math.PI * 2); ctx.fill();
@@ -6709,8 +6738,9 @@ export class Actors {
   // ------------------------------------------------------------------ one player
   updateActor(a, dt, st, holder, offSide) {
     const L = this.L, e = a.e;
-    // --- visual position (sim position + cosmetic overrides)
-    let x = e.x, y = e.y, zoff = 0;
+    // --- visual position (sim position + cosmetic overrides; an online guest's own player is drawn where it predicts him)
+    const pr = L.pred?.e === e ? L.pred : e;
+    let x = pr.x, y = pr.y, zoff = 0;
     if (a.ov) {
       const o = a.ov;
       if (o.kind === 'walkon') {
@@ -7430,6 +7460,8 @@ export class Broadcast {
       if (o.tz != null) o.zoff = far ? o.tz : o.z0 + (o.tz - o.z0) * alpha;
     };
     for (const a of A.byEnt.values()) mixp(a);
+    // online guest: its own player goes where its own buttons take him, every refresh (see Session.predict)
+    if (L.pred) { const a = A.byEnt.get(L.pred.e); if (a && !a.ov) { a.x = L.pred.x; a.y = L.pred.y; } }
     for (const r of A.refs) mixp(r);
     for (const g of A.ghosts) mixp(g);
 
@@ -8065,7 +8097,7 @@ export function stateHash(live) {
 // live.js). The host is one of them (or just watching) and still runs the game; every guest sends
 // its own key's buttons, and a frame carries one [bits, lag, hold] per key in `keys` order.
 
-import { LiveGame, NO_INPUT, sideOfKey } from '@@engine/live.js@@';
+import { LiveGame, NO_INPUT, sideOfKey, RES, meterZone, TAP_FAKE } from '@@engine/live.js@@';
 import { encode, decode, stateHash } from '@@net/snapshot.js@@';
 
 export const STEP = 1 / 60;
@@ -8075,6 +8107,11 @@ const SNAP = 30;           // over this many frames behind (0.5 s): jump straigh
 const FAR = 480;           // over 8 s behind: ask for a snapshot instead of replaying
 const HASH_EVERY = 60;     // fingerprint once a second
 const MAX_LAG_TICKS = 21;  // 0.35 s, the engine's cap
+// Prediction (guest): its own player is drawn where its own buttons have already taken him, instead of
+// where the host's game (a round trip behind) has him. Corrections blend in over about this long (s).
+const PRED_TAU = 1 / 30;
+const PRED_SNAP = 8;       // feet: further off than this, jump instead of sliding
+const BODY = 2.4;          // the engine's body size (players can't overlap)
 
 const FIELDS = ['sprint', 'shoot', 'pass', 'swap', 'steal', 'timeout', 'pick', 'move', 'spin'];
 export function packIntent(i) {
@@ -8082,11 +8119,13 @@ export function packIntent(i) {
   FIELDS.forEach((f, k) => { if (i[f]) b |= 1 << (4 + k); });
   return b;
 }
-export function unpackIntent(b, lagTicks = 0, hold = 0) {
+export function unpackIntent(b, lagTicks = 0, hold = 0, net = false) {
   const o = { mx: (b & 3) - 1, my: ((b >> 2) & 3) - 1 };
   FIELDS.forEach((f, k) => { o[f] = !!(b & (1 << (4 + k))); });
   if (lagTicks) o.lag = lagTicks / 60;
-  if (hold) o.hold = hold;            // guest's own count of steps Space was held, sent on release
+  // A release from a guest's own meter: steps Space was held there * 8 + the result its screen saw (RES)
+  if (hold) { o.hold = hold >> 3; if (hold & 7) o.res = hold & 7; }
+  if (net) o.net = true;              // a remote player: its own screen lets go of its meters
   return o;
 }
 const SHOOT_BIT = 1 << 5;
@@ -8129,9 +8168,21 @@ export class Session {
     this.stats = { snaps: 0, snapsFar: 0, fast: 0, ffw: 0, mismatches: 0, dry: 0 };
     // The guest times its own shots: it counts how long Space is held on its screen and sends that
     // with the release, inside the normal input stream, so both screens judge the same number.
-    this.holdN = 0;             // steps Space has been held (guest)
-    this.relMeter = null;       // the replica's meter that was already let go here (hidden until it clears)
-    this.relFt = null;
+    this.lm = null;             // the guest's own running meter: { n steps held, ft, dur }
+    this.spent = false;         // let go automatically at the top: wait for Space to come up
+    this.wasShoot = false;
+    this.sentShot = null;       // a shot let go here, until this screen's copy shows it
+    this.relFt = null;          // the free throw meter already let go here (hidden until it clears)
+    // prediction (guest) and the acknowledgements it needs
+    this.seq = 0;               // number of the next button sample this screen sends
+    this.pend = [];             // samples sent but not yet in the game the host sends back: { s, b }
+    this.ack = -1;              // last of our samples the host has used, as of the step on screen
+    this.predictOn = opts.predict !== false;
+    this.disp = null; this.pe = null;
+    this.lastAck = new Map();   // host: last sample used per guest key
+    this.nextSeq = new Map();   // host: number of the next sample expected per guest key
+    this.sentS = -1e9;          // guest: when it last told the host its sample number
+    this.hostKey = this.multi ? null : 'home';
     link.onmsg = (m) => this.onMsg(m);
     link.onclose = (why) => this.ui.onClose?.(why);
     link.route().then((r) => { this.route = r; });
@@ -8176,7 +8227,10 @@ export class Session {
           if (!k || k === this.key || !this.keys.includes(k)) break;
           if (this.multi) this.seen.set(k, performance.now());
           const q = this.gqs.get(k) ?? []; this.gqs.set(k, q);
-          for (const x of m.q) q.push(x);
+          // number the samples (the guest says where it is now and then; the channel keeps order)
+          let sq = m.s ?? this.nextSeq.get(k);
+          for (const x of m.q) { if (sq != null) x[3] = sq++; q.push(x); }
+          if (sq != null) this.nextSeq.set(k, sq);
         }
         break;
       case 'c': if (this.role === 'host') this.guestCmd(m.c, this.multi ? m.k : 'away'); break;
@@ -8195,7 +8249,8 @@ export class Session {
   hostStart(live, cfg) {
     this.live = live; this.cfg = cfg; this.tick = 0;
     this.takeKeys(cfg);
-    this.gqs.clear(); this.gHelds.clear();
+    if (this.multi) cfg.hk = this.key;        // every screen needs to know which seat is played right here
+    this.gqs.clear(); this.gHelds.clear(); this.lastAck.clear(); this.nextSeq.clear();
     if (this.multi) for (const k of this.keys) this.seen.set(k, performance.now());
     this.link.send({ t: 'start', cfg });
   }
@@ -8204,7 +8259,7 @@ export class Session {
 
   sendSnap(to) {
     this.flush();
-    this.link.send({ t: 'snap', n: this.tick, s: encode(this.live), to });
+    this.link.send({ t: 'snap', n: this.tick, s: encode(this.live), to, a: Object.fromEntries(this.lastAck) });
   }
 
   setPause(on, by) {
@@ -8250,6 +8305,7 @@ export class Session {
       gq[0][1] |= b & EDGE_MASK;
       if (hold && !gq[0][2]) gq[0][2] = hold;
     }
+    if (gq.length && gq[0][3] != null) this.lastAck.set(k, gq[0][3]);
     // 2v2: someone who dropped out stops (his player stands instead of running on forever)
     if (this.multi && !gq.length && performance.now() - (this.seen.get(k) ?? 0) > 1500) this.gHelds.set(k, 0);
     let bits = (this.gHelds.get(k) ?? 0) & ~EDGE_MASK, lagT = 0, hold = 0;
@@ -8266,7 +8322,7 @@ export class Session {
     if (!this.multi) {
       const [gBits, lagT, hold] = this.takeGuest('away');
       const hBits = packIntent(myIntent);
-      L.update(STEP, { home: unpackIntent(hBits), away: unpackIntent(gBits, lagT, hold) });
+      L.update(STEP, { home: unpackIntent(hBits), away: unpackIntent(gBits, lagT, hold, true) });
       f = [hBits, gBits, lagT];
       if (cmds.length || hold) f.push(cmds.length ? cmds : 0);
       if (hold) f.push(hold);
@@ -8276,7 +8332,7 @@ export class Session {
       const inp = {};
       for (const k of this.keys) {
         const r = k === this.key ? [packIntent(myIntent), 0, 0] : this.takeGuest(k);
-        inp[k] = unpackIntent(r[0], r[1], r[2]);
+        inp[k] = unpackIntent(r[0], r[1], r[2], k !== this.key);
         f.push(r[0], r[1], r[2]);
       }
       L.update(STEP, inp);
@@ -8289,13 +8345,18 @@ export class Session {
   /** Host: send the frames made since the last call (once per screen refresh). */
   flush() {
     if (!this.out.length) return;
-    this.link.send({ t: 'f', n: this.tick - this.out.length + 1, f: this.out, h: this.outHashes.length ? this.outHashes : undefined });
+    // the last of each guest's button samples the game has used (for its prediction)
+    let a;
+    if (!this.multi) a = this.lastAck.get('away');
+    else for (const [k, v] of this.lastAck) if (k !== this.key) (a ??= {})[k] = v;
+    this.link.send({ t: 'f', n: this.tick - this.out.length + 1, f: this.out, h: this.outHashes.length ? this.outHashes : undefined, a });
     this.out = []; this.outHashes = [];
   }
 
   // ------------------------------------------------------------------ guest
   guestStart(cfg) {
     this.takeKeys(cfg);
+    if (this.multi) this.hostKey = cfg.hk ?? null;
     this.cfg = cfg; this.tick = 0; this.buf = []; this.expect.clear(); this.waitSnap = false;
     this.ui.onStart?.(cfg);        // main creates the LiveGame and calls setLive()
   }
@@ -8305,7 +8366,14 @@ export class Session {
 
   gotFrames(m) {
     if (this.waitSnap) return;          // a snapshot is on its way; these are older than it
-    m.f.forEach((f, k) => { const n = m.n + k; if (n > this.tick) this.buf.push({ n, f }); });
+    // the host's last used sample of ours as of the last of these steps; one a step before that
+    const last = this.key ? (this.multi ? m.a?.[this.key] : m.a) : null, L = m.f.length;
+    let prev = this.buf.length ? this.buf[this.buf.length - 1].a : this.ack;
+    m.f.forEach((f, k) => {
+      const a = last == null ? null : Math.max(prev ?? -1, last - (L - 1 - k));
+      prev = a ?? prev;
+      const n = m.n + k; if (n > this.tick) this.buf.push({ n, f, a });
+    });
     for (const [n, h] of m.h ?? []) this.expect.set(n, h);
   }
 
@@ -8313,6 +8381,7 @@ export class Session {
     if (!this.live) return;
     decode(m.s, this.data, this.live);          // in place: the renderer keeps its players
     this.live.user = this.side; this.live.me = this.key;
+    if (this.key && m.a?.[this.key] != null) this.ack = m.a[this.key];   // (snapshot: per key in both modes)
     this.tick = m.n;
     this.buf = this.buf.filter((x) => x.n > m.n);
     for (const k of this.expect.keys()) if (k <= m.n) this.expect.delete(k);
@@ -8325,14 +8394,15 @@ export class Session {
     if (this.multi) {
       const f = fr.f, inp = {};
       if (f[0]) for (const c of f[0]) applyCmd(this.live, c);
-      this.keys.forEach((k, j) => { inp[k] = unpackIntent(f[1 + j * 3], f[2 + j * 3], f[3 + j * 3]); });
+      this.keys.forEach((k, j) => { inp[k] = unpackIntent(f[1 + j * 3], f[2 + j * 3], f[3 + j * 3], k !== this.hostKey); });
       this.live.update(STEP, inp);
     } else {
       const [hb, ab, lagT, cmds, hold] = fr.f;
       if (cmds) for (const c of cmds) applyCmd(this.live, c);
-      this.live.update(STEP, { home: unpackIntent(hb), away: unpackIntent(ab, lagT, hold) });
+      this.live.update(STEP, { home: unpackIntent(hb), away: unpackIntent(ab, lagT, hold, true) });
     }
     this.tick = fr.n;
+    if (fr.a != null) this.ack = fr.a;
     const want = this.expect.get(fr.n);
     if (want !== undefined) {
       this.expect.delete(fr.n);
@@ -8357,14 +8427,20 @@ export class Session {
     while (this.inAcc >= STEP && n++ < 8) {
       this.inAcc -= STEP;
       const bits = inputOn && this.key ? packIntent(keys.snapshot()) : 0;
-      if (bits & SHOOT_BIT) { this.holdN++; this.iq.push([this.tick, bits]); }
-      else { this.iq.push(this.holdN ? [this.tick, bits, this.holdN] : [this.tick, bits]); this.holdN = 0; }
+      const hold = this.localMeter(bits);
+      this.iq.push(hold ? [this.tick, bits, hold] : [this.tick, bits]);
       keys.clearEdges();
     }
     if (this.inAcc > STEP) this.inAcc = 0;
-    if (this.iq.length && !this.paused && this.live?.phase !== 'final' && this.key) this.link.send(this.multi ? { t: 'i', q: this.iq, k: this.key, to: 'host' } : { t: 'i', q: this.iq });
+    if (this.iq.length && !this.paused && this.live?.phase !== 'final' && this.key) {
+      const s0 = this.seq;
+      this.seq += this.iq.length;
+      if (this.predictOn) this.iq.forEach((x, j) => this.pend.push({ s: s0 + j, b: x[1] }));
+      const s = s0 - this.sentS >= 60 ? (this.sentS = s0) : undefined;     // sample number once a second
+      this.link.send(this.multi ? { t: 'i', q: this.iq, s, k: this.key, to: 'host' } : { t: 'i', q: this.iq, s });
+    }
     this.iq = [];
-    if (!this.live || this.waitSnap) return 1;
+    if (!this.live || this.waitSnap) { if (this.live) this.live.pred = null; return 1; }
 
     // 2) frames
     const behind = this.buf.length, T = this.target;
@@ -8391,7 +8467,144 @@ export class Session {
       if ((this.calmT += dt) > 10 && this.target > TARGET) { this.target--; this.calmT = 0; }
     }
     this.viewMeters();
+    this.predict(dt);
     return Math.min(1, this.acc / STEP);
+  }
+
+  // ------------------------------------------------------------------ guest: local shot meter
+  /**
+   * The guest runs its own meter on its own clock (one count per 1/60 s button sample) and decides
+   * the result itself the moment Space comes up, using the green window it is showing. The result
+   * rides to the host with that release, in the normal input stream (so every screen applies the same
+   * result at the same step). @returns the release code for this sample (0 = none)
+   */
+  localMeter(bits) {
+    const L = this.live, shoot = !!(bits & SHOOT_BIT);
+    let out = 0;
+    if (!L || !this.key) { this.lm = null; this.wasShoot = shoot; return 0; }
+    if (shoot) {
+      if (this.lm) {
+        this.lm.n++;
+        if (this.lm.n / 60 >= this.lm.dur * 1.18) { out = this.letGo(); this.spent = true; }   // past the top: very late
+      } else if (!this.wasShoot && !this.spent) this.startLocal();
+    } else {
+      if (this.lm) out = this.letGo();
+      this.spent = false;
+    }
+    this.wasShoot = shoot;
+    return out;
+  }
+
+  /** The meter as the game would start it for my player right now (same numbers, nothing kept). */
+  previewMeter(me) {
+    const L = this.live, keep = L.meter;
+    L.startMeter(me);
+    const m = L.meter;
+    L.meter = keep;
+    return m;
+  }
+
+  startLocal() {
+    const L = this.live, me = L.uc[this.key]?.ctrl;
+    const fm = L.ftMeter;
+    if (fm && L.ftLine && L.ctlOf(L.ftLine.shooter) === this.key && fm !== this.relFt) {
+      this.lm = { n: 1, ft: true, dur: fm.dur, m: fm };
+    } else if (me && L.ball.holder === me && L.phase === 'live' && !this.shotOut(me)) {
+      const m = this.previewMeter(me);
+      this.lm = { n: 1, ft: false, dur: m.dur, m };
+    }
+  }
+
+  /** A shot already let go here that this screen's copy of the game has not shown yet (no second meter). */
+  shotOut(me) {
+    const so = this.sentShot, L = this.live;
+    if (so && (so.e !== me || L.ball.holder !== me || L.phase !== 'live' || this.tick > so.n)) this.sentShot = null;
+    return !!this.sentShot;
+  }
+
+  /** Space came up (or the meter topped out): judge it on this screen. */
+  letGo() {
+    const L = this.live, lm = this.lm;
+    this.lm = null;
+    const t = lm.n / 60;
+    let code;
+    if (lm.ft) {
+      const fm = L.ftMeter ?? lm.m;
+      code = meterZone(fm, t / fm.dur, true);
+      this.relFt = L.ftMeter ?? lm.m;
+    } else if (t < TAP_FAKE) code = RES.FAKE;
+    else {
+      const m = this.shownMeter(lm);
+      code = meterZone(m, t / m.dur);
+      this.sentShot = { e: L.uc[this.key]?.ctrl, n: this.tick + 90 };
+    }
+    this.lastRel = { code, t, ft: lm.ft };
+    return lm.n * 8 + code;
+  }
+
+  /** The window the guest is looking at: its own meter's length, the game's current green and orange. */
+  shownMeter(lm) {
+    const L = this.live, me = L.uc[this.key]?.ctrl;
+    let base = lm.m;
+    if (me && L.ball.holder === me) base = L.meter ?? this.previewMeter(me);
+    else if (L.meter) base = L.meter;
+    lm.m = base;
+    return { ...base, dur: lm.dur };
+  }
+
+  // ------------------------------------------------------------------ guest: prediction
+  /**
+   * Display only: work out where this screen's own player is once the button samples the host has
+   * not used yet are applied (same movement rules as the engine, opponents block him), and draw him
+   * there. The host's game still decides everything; when it disagrees (a bump, a steal), the drawn
+   * player glides back to it over a few frames. Nothing here touches the game state.
+   */
+  predict(dt) {
+    const L = this.live;
+    while (this.pend.length && this.pend[0].s <= this.ack) this.pend.shift();
+    if (this.pend.length > 120) this.pend.splice(0, this.pend.length - 120);
+    const U = this.key ? L.uc[this.key] : null, e = this.predictOn ? U?.ctrl : null;
+    if (!e) { L.pred = null; this.disp = null; this.pe = null; return; }
+    if (e !== this.pe) { this.pe = e; this.disp = null; }
+    const b = L.ball, holder = b.holder === e;
+    const ok = L.phase === 'live' && !(e.stun > 0) && !e.oob && !(b.flight && b.flight.to === e)
+      && !(holder && (e.pivot || L.meter || L.windup || (e.dmove && e.dmove.t < e.dmove.dur)));
+    let gx = e.x, gy = e.y, gvx = e.vx, gvy = e.vy;
+    if (ok) {
+      const offBall = U.roles && e.side === L.state.possession && !holder;   // 2v2/3v3: the CPU runs his cuts unless steered
+      const m = holder ? -3 : 0.6, maxA = 55 * STEP;
+      let x = e.x, y = e.y, vx = e.vx, vy = e.vy;
+      for (const p of this.pend) {
+        const i = unpackIntent(p.b);
+        let dvx, dvy;
+        if (holder && (i.shoot || i.move || i.spin || i.pass)) break;    // meter, dribble move or pass: the host's game shows it
+        const nn = Math.hypot(i.mx, i.my);
+        if (nn < 0.01) { if (offBall) { dvx = e.dvx; dvy = e.dvy; } else { dvx = 0; dvy = 0; } }
+        else { const v = L.maxSpeed(e, i.sprint); dvx = i.mx / nn * v; dvy = i.my / nn * v; }
+        const ax = dvx - vx, ay = dvy - vy, a = Math.hypot(ax, ay);
+        if (a > maxA) { vx += ax / a * maxA; vy += ay / a * maxA; } else { vx = dvx; vy = dvy; }
+        x += vx * STEP; y += vy * STEP;
+        for (const o of L.all) {
+          if (o === e || o.oob) continue;
+          const dx = x - o.x, dy = y - o.y, d = Math.hypot(dx, dy);
+          if (d >= BODY || d < 1e-6) continue;
+          const k = o.side === e.side ? 0.4 : o.stun > 0 ? 0.3 : 1;
+          const w = holder ? 0.72 : b.holder === o ? 0.28 : 0.5;
+          x += dx / d * (BODY - d) * w * k; y += dy / d * (BODY - d) * w * k;
+        }
+        x = Math.max(m, Math.min(94 - m, x)); y = Math.max(m, Math.min(50 - m, y));
+      }
+      gx = x; gy = y; gvx = vx; gvy = vy;
+    }
+    // draw position: follows the prediction; corrections glide in (the velocity term keeps it from trailing)
+    const tx = gx + gvx * PRED_TAU, ty = gy + gvy * PRED_TAU;
+    if (!this.disp || Math.hypot(tx - this.disp.x, ty - this.disp.y) > PRED_SNAP) this.disp = { x: gx, y: gy };
+    else {
+      const k = 1 - Math.exp(-dt / PRED_TAU);
+      this.disp.x += (tx - this.disp.x) * k; this.disp.y += (ty - this.disp.y) * k;
+    }
+    if (!ok && Math.hypot(this.disp.x - e.x, this.disp.y - e.y) < 0.05) { L.pred = null; return; }
+    L.pred = { e, x: this.disp.x, y: this.disp.y };
   }
 
   /**
@@ -8399,33 +8612,21 @@ export class Session {
    * not on the replica, which is a few steps behind. Nothing here touches the game state.
    */
   viewMeters() {
-    const L = this.live, me = this.key ? L.uc[this.key]?.ctrl : null, holding = this.holdN > 0;
-    const t = (this.holdN + this.inAcc / STEP) / 60;
-    // shot meter
-    let vm = null;
-    if (L.meter && L.meter === this.relMeter) vm = null;          // already let go here
-    else if (holding && me && L.ball.holder === me && L.phase === 'live' && (L.meter || !L.needRelease)) {
-      let base = L.meter;
-      if (!base) { const keep = L.meter; L.startMeter(me); base = L.meter; L.meter = keep; }  // preview, same numbers
-      vm = { ...base, t: Math.min(t, base.dur * 1.18) };
-    }
-    if (!holding && this.wasHolding) this.relMeter = L.meter;     // the replica's meter will clear soon
-    if (!L.meter) this.relMeter = null;
-    L.viewMeter = vm;
+    const L = this.live, lm = this.lm;
+    const t = lm ? (lm.n + Math.min(1, this.inAcc / STEP)) / 60 : 0;
+    // shot meter: only the one running on this screen (none once let go: the result is on its way)
+    L.viewMeter = lm && !lm.ft ? { ...this.shownMeter(lm), t: Math.min(t, lm.dur * 1.18) } : null;
     // free throw meter
     const fm = L.ftMeter;
     let vf = fm;
     if (fm && this.key && L.ctlOf(L.ftLine?.shooter) === this.key) {
-      if (fm === this.relFt) vf = null;
-      else if (holding && (fm.active || fm.armed)) vf = { ...fm, active: true, t: Math.min(t, fm.dur * 1.18) };
-      else if (fm.active) vf = { ...fm, t: 0, active: false };     // replica still has it held: show the idle meter
-      if (!holding && this.wasHolding && (fm.active || fm.armed)) this.relFt = fm;
+      if (lm?.ft) vf = { ...fm, active: true, t: Math.min(t, lm.dur * 1.18) };
+      else if (fm === this.relFt) vf = null;
+      else vf = { ...fm, t: 0, active: false };
     }
     if (!fm) this.relFt = null;
     L.viewFtMeter = vf;
-    this.wasHolding = holding;
   }
-
 }
 
 /**
@@ -9640,7 +9841,7 @@ setInterval(() => {
   b.textContent = `ONLINE · ${who} · ${ms}${gone.length ? ` · WAITING FOR ${gone.join(', ').toUpperCase()} (CODE ${lobby2?.code ?? ''})` : ''}${net.route === 'relay' ? ' · RELAY' : net.route === 'server' ? ' · SERVER' : ''}${behind > 6 ? ' · CATCHING UP' : ''}`;
   b.classList.toggle('bad', net.link.closed || (net.rtt ?? 0) > 200 || gone.length > 0);
 }, 500);
-window.__netDebug = () => net && { role: net.role, tick: net.tick, buf: net.buf?.length, stats: net.stats, rtt: net.rtt, route: net.route };
+window.__netDebug = () => net && { role: net.role, tick: net.tick, buf: net.buf?.length, stats: net.stats, rtt: net.rtt, route: net.route, pend: net.pend?.length, pred: live?.pred ? { x: live.pred.x, y: live.pred.y, gx: live.pred.e.x, gy: live.pred.e.y } : null, ctrl: live?.ctrl ? { x: live.ctrl.x, y: live.ctrl.y } : null, phase: live?.phase };
 
 
 // ====================================================================== 2v2 online
