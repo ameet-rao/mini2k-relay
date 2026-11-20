@@ -120,6 +120,7 @@
   .seats { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 26px; margin: 18px 4px 0; }
   .seats .side { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: var(--panel2); }
   .seats h2 { font: 20px/1.4 var(--px); margin: 0; color: var(--yel); }
+  .seats .seatlist { display: flex; flex-direction: column; gap: 10px; }
   .seats button.seat { text-align: left; font: 20px/1.5 var(--tiny); text-transform: none; }
   .seats button.seat.mine { outline: 4px solid var(--yel); }
   .seats button.seat b { font-weight: normal; color: var(--dim); }
@@ -170,7 +171,7 @@
       <div class="prow"><b>Online now <span id="presCount"></span></b><input type="text" id="presName" maxlength="16" autocomplete="off" spellcheck="false" placeholder="YOUR NAME"><button class="ghost" id="btnPresGo">Show me</button></div>
       <div id="presList"></div>
     </div>
-    <div class="actions"><button id="btnStart">Tip Off Now</button><button class="ghost" id="btnOnline">Play a friend online</button><button class="ghost" id="btnOnline2">Play 2v2 Online</button><button class="ghost" id="btnDemo">Watch CPU vs CPU</button><button class="ghost btnFull">Fullscreen</button></div>
+    <div class="actions"><button id="btnStart">Tip Off Now</button><button class="ghost" id="btnOnline">Play a friend online</button><button class="ghost" id="btnOnline2">Multiplayer (2v2 / 3v3)</button><button class="ghost" id="btnDemo">Watch CPU vs CPU</button><button class="ghost btnFull">Fullscreen</button></div>
   </div>
 </div>
 
@@ -247,11 +248,12 @@
 
 <div class="overlay online" id="online2" hidden>
   <div class="card">
-    <div class="head"><h1>Play 2v2 online <span class="tag">up to 4 players</span></h1></div>
-    <p class="sub">One person creates a room and up to three friends join with its code. Each team has two players: one runs the PG and C, the other runs the SG, SF and PF. An open spot is played by the CPU. Off the ball, Q switches between your own players. Needs the Mini2K server.</p>
+    <div class="head"><h1>Multiplayer online <span class="tag">2v2 or 3v3</span></h1></div>
+    <p class="sub">One person creates a room and friends join with its code. 2v2: on each team one person runs the PG and C, the other the SG, SF and PF. 3v3: one runs the PG and SG, one the SF, one the PF and C. An open spot is played by the CPU. Off the ball, Q switches between your own players. Needs the Mini2K server.</p>
     <div class="picks">
       <label for="o2Name">Your name<input type="text" id="o2Name" maxlength="12" autocomplete="off" spellcheck="false" placeholder="PLAYER"></label>
       <label for="o2Via">Connect through<select id="o2Via"><option value="server" selected>Internet: Mini2K server</option><option value="local">This computer: tabs (test)</option></select></label>
+      <label for="o2Mode">Mode (room creator picks)<select id="o2Mode"><option value="2v2" selected>2v2 (4 players)</option><option value="3v3">3v3 (6 players)</option></select></label>
       <label for="o2Q">Quarter length (room creator picks)<select id="o2Q"><option value="2">2 minutes</option><option value="5">5 minutes</option><option value="6">6 minutes</option><option value="8">8 minutes</option><option value="12" selected>12 minutes</option></select></label>
       <label for="o2Diff">Meter difficulty (room creator picks)<select id="o2Diff"><option value="easy">Super Easy</option><option value="rookie">Rookie</option><option value="pro" selected>Pro</option><option value="allstar">All-Star</option></select></label>
     </div>
@@ -263,8 +265,8 @@
     </div>
     <div class="row2" id="o2Room" hidden><span>Room code</span><span class="roomcode" id="o2RoomCode"></span><span class="note">Tell your friends this code.</span></div>
     <div class="seats" id="o2Seats" hidden>
-      <div class="side"><h2>Home</h2><select id="o2TeamHome"></select><button class="ghost seat" data-k="home"></button><button class="ghost seat" data-k="home2"></button></div>
-      <div class="side"><h2>Away</h2><select id="o2TeamAway"></select><button class="ghost seat" data-k="away"></button><button class="ghost seat" data-k="away2"></button></div>
+      <div class="side"><h2>Home</h2><select id="o2TeamHome"></select><div class="seatlist" id="o2SeatsHome"></div></div>
+      <div class="side"><h2>Away</h2><select id="o2TeamAway"></select><div class="seatlist" id="o2SeatsAway"></div></div>
     </div>
     <div class="status" id="o2Status"></div>
     <div class="match" id="o2Match"></div>
@@ -1994,9 +1996,15 @@ const PIVOT_STEP = 1.3;           // feet the body swings around the pivot foot
 const SIDE_MOVES = ['shift', 'crossover', 'between_legs', 'behind_back'];
 /** A timeout lasts this long (seconds); both coaches make substitutions during it, in when it ends. */
 export const TIMEOUT_SECS = 10;
-// 2v2 online: two people per team. 'home'/'away' run the PG and C, 'home2'/'away2' the SG, SF and PF.
-export const SEAT_KEYS = ['home', 'home2', 'away', 'away2'];
-export const SEAT_ROLES = { home: [0, 4], home2: [1, 2, 3], away: [0, 4], away2: [1, 2, 3] };
+// Multiplayer online: several people per team, each running some positions (roles 0..4 = PG SG SF PF C).
+// 2v2: 'home'/'away' run the PG and C, 'home2'/'away2' the SG, SF and PF.
+// 3v3: 'home' PG+SG, 'home2' SF, 'home3' PF+C (same for away). The game config carries the roles.
+export const SEAT_KEYS = ['home', 'home2', 'home3', 'away', 'away2', 'away3'];
+export const MODES = {
+  '2v2': { roles: { home: [0, 4], home2: [1, 2, 3], away: [0, 4], away2: [1, 2, 3] }, names: { home: 'PG + C', home2: 'SG + SF + PF', away: 'PG + C', away2: 'SG + SF + PF' } },
+  '3v3': { roles: { home: [0, 1], home2: [2], home3: [3, 4], away: [0, 1], away2: [2], away3: [3, 4] }, names: { home: 'PG + SG', home2: 'SF', home3: 'PF + C', away: 'PG + SG', away2: 'SF', away3: 'PF + C' } },
+};
+export const SEAT_ROLES = MODES['2v2'].roles;
 export const sideOfKey = (k) => (k.startsWith('home') ? 'home' : 'away');
 const hasDir = (i) => !!i && (Math.abs(i.mx) > 0.01 || Math.abs(i.my) > 0.01);
 /** Usual offense/defense ratio of the positional rebound factors (keeps the offensive-rebound rate calibrated). */
@@ -2036,12 +2044,12 @@ export class LiveGame {
     // Controllers: one per person. Normally the key is the side ('home', 'away') and the person runs
     // the whole team. In 2v2 (`seats`), each side can have two people: 'home' runs the PG and C,
     // 'home2' the SG, SF and PF (SEAT_ROLES); roles nobody holds are played by the CPU.
-    const seats = opts.seats ?? null;
+    const seats = opts.seats ?? null, seatRoles = opts.seatRoles ?? SEAT_ROLES;
     this.ctls = seats ? SEAT_KEYS.filter((k) => seats.includes(k)) : user === 'both' ? ['home', 'away'] : user ? [user] : [];
     this.humans = ['home', 'away'].filter((sd) => this.ctls.some((k) => sideOfKey(k) === sd));
     this.user = user === 'both' ? 'home' : user;
     this.me = this.user;           // controller key of THIS screen (display only, like `user`)
-    const uctx = (k) => ({ side: sideOfKey(k), roles: seats ? SEAT_ROLES[k] : null, ctrl: null, wantTimeout: false, pendingSubs: [], shootHeld: false });
+    const uctx = (k) => ({ side: sideOfKey(k), roles: seats ? seatRoles[k] ?? null : null, ctrl: null, wantTimeout: false, pendingSubs: [], shootHeld: false });
     this.uc = {};
     for (const k of [...new Set(['home', 'away', ...this.ctls])]) this.uc[k] = uctx(k);
     this.difficulty = difficulty;
@@ -8429,7 +8437,8 @@ export function makeOnlineGame(data, cfg, key) {
   const live = new LiveGame(data, {
     home: cfg.home, away: cfg.away, user: 'both', difficulty: cfg.difficulty, seed: cfg.seed,
     rules: { quarterMinutes: cfg.quarter, difficulty: cfg.difficulty },
-    seats: cfg.mode === '2v2' ? cfg.keys : undefined,
+    seats: cfg.mode === '2v2' || cfg.mode === '3v3' ? cfg.keys : undefined,
+    seatRoles: cfg.roles,
   });
   live.user = key ? sideOfKey(key) : 'home';
   live.me = key;
@@ -8911,7 +8920,7 @@ export function onlineFor(min) {
 //   &intro=0 skips the lineup card, &view=classic uses the top-down view
 
 import { buildIndex } from '@@engine/data.js@@';
-import { LiveGame, SEAT_KEYS } from '@@engine/live.js@@';
+import { LiveGame, SEAT_KEYS, MODES } from '@@engine/live.js@@';
 import { deriveBoxScore } from '@@engine/boxscore.js@@';
 import { Keyboard } from '@@ui/input.js@@';
 import { render, VIEW } from '@@ui/render.js@@';
@@ -9626,7 +9635,7 @@ setInterval(() => {
   if (!net.route || net.route === '?') net.link.route().then((r) => { net.route = r; });
   const ms = net.rtt != null ? `${Math.round(net.rtt)} MS` : '...';
   const behind = net.role === 'guest' ? net.buf.length : 0;
-  const who = net.multi ? (net.key ? `${net.side === 'home' ? 'HOME' : 'AWAY'} ${/2$/.test(net.key) ? 'SG SF PF' : 'PG C'}` : 'WATCHING') : net.side === 'home' ? 'HOME' : 'AWAY';
+  const who = net.multi ? (net.key ? `${net.side === 'home' ? 'HOME' : 'AWAY'} ${(MODES[net.cfg?.mode]?.names[net.key] ?? '').replace(/ \+ /g, ' ').toUpperCase()}` : 'WATCHING') : net.side === 'home' ? 'HOME' : 'AWAY';
   const gone = net.multi && net.role === 'host' && live.phase !== 'final' ? net.staleKeys().map((k) => net.cfg?.names?.[k] ?? k) : [];
   b.textContent = `ONLINE · ${who} · ${ms}${gone.length ? ` · WAITING FOR ${gone.join(', ').toUpperCase()} (CODE ${lobby2?.code ?? ''})` : ''}${net.route === 'relay' ? ' · RELAY' : net.route === 'server' ? ' · SERVER' : ''}${behind > 6 ? ' · CATCHING UP' : ''}`;
   b.classList.toggle('bad', net.link.closed || (net.rtt ?? 0) > 200 || gone.length > 0);
@@ -9639,7 +9648,7 @@ window.__netDebug = () => net && { role: net.role, tick: net.tick, buf: net.buf?
 // (who sits where, both teams) and runs the game; see Session (multi) in src/net/session.js.
 // Seats: 'home'/'away' run the PG and C, 'home2'/'away2' the SG, SF and PF. Empty seats are CPU.
 let lobby2 = null;         // { role, code, via, id, st, hb }
-const SEAT_NAME = { home: 'PG + C', home2: 'SG + SF + PF', away: 'PG + C', away2: 'SG + SF + PF' };
+const modeKeys = (mode) => Object.keys(MODES[mode].roles);
 for (const sel of [$('o2TeamHome'), $('o2TeamAway')]) {
   for (const id of teamIds) {
     const o = document.createElement('option');
@@ -9655,7 +9664,7 @@ function o2Reset() {
   $('o2Choose').hidden = false; $('o2Room').hidden = true; $('o2Seats').hidden = true;
   $('btnO2Start').hidden = true; $('o2Match').textContent = ''; o2Status('');
   for (const id of ['o2Via', 'o2Code', 'btnO2Host', 'btnO2Join', 'o2Name']) $(id).disabled = false;
-  $('o2Q').disabled = $('o2Diff').disabled = false;
+  $('o2Q').disabled = $('o2Diff').disabled = $('o2Mode').disabled = false;
 }
 function show2v2Lobby() {
   $('menu').hidden = true; $('online2').hidden = false;
@@ -9693,7 +9702,7 @@ async function hubBase() {
 async function open2v2(role, code) {
   try { localStorage.setItem('mini2k.name', myName()); } catch { /* ignore */ }
   for (const id of ['o2Via', 'o2Code', 'btnO2Host', 'btnO2Join', 'o2Name']) $(id).disabled = true;
-  $('o2Q').disabled = $('o2Diff').disabled = role !== 'host';
+  $('o2Q').disabled = $('o2Diff').disabled = $('o2Mode').disabled = role !== 'host';
   const via = $('o2Via').value;
   const id = role === 'host' ? 'host' : `p-${rid()}`;
   lobby2 = { role, code, via, id, st: null, hb: null, link: null };
@@ -9717,7 +9726,7 @@ async function open2v2(role, code) {
   window.__net = net;
   link.onclose = (why) => on2v2Closed(why);
   if (role === 'host') {
-    L2.st = { players: [{ id, name: myName(), t: performance.now() }], who: { home: id, home2: null, away: null, away2: null }, teams: { home: $('o2TeamHome').value, away: $('o2TeamAway').value }, q: Number($('o2Q').value), diff: $('o2Diff').value };
+    L2.st = { mode: $('o2Mode').value, players: [{ id, name: myName(), t: performance.now() }], who: { home: id, home2: null, home3: null, away: null, away2: null, away3: null }, teams: { home: $('o2TeamHome').value, away: $('o2TeamAway').value }, q: Number($('o2Q').value), diff: $('o2Diff').value };
     if (L2.st.teams.home === L2.st.teams.away) L2.st.teams.away = teamIds.find((t) => t !== L2.st.teams.home);
     o2Status('Room is open. Waiting for friends to join...');
     // drop people who closed the page without saying bye (lobby only; in a game their seat waits for them)
@@ -9754,11 +9763,15 @@ function send2v2Lobby() {
   if (!lobby2 || lobby2.role !== 'host' || !net) return;
   const st = lobby2.st;
   st.q = Number($('o2Q').value); st.diff = $('o2Diff').value;
+  if (st.mode !== $('o2Mode').value) {
+    st.mode = $('o2Mode').value;
+    for (const k of SEAT_KEYS) if (!modeKeys(st.mode).includes(k)) st.who[k] = null;     // 3v3 -> 2v2: third spots close
+  }
   net.link.send({ t: 'lobby2', st: pubLobby() });
   render2v2();
 }
-const pubLobby = () => { const st = lobby2.st; return { players: st.players.map((p) => ({ id: p.id, name: p.name })), who: st.who, teams: st.teams, q: st.q, diff: st.diff }; };
-for (const id of ['o2Q', 'o2Diff']) $(id).addEventListener('change', () => send2v2Lobby());
+const pubLobby = () => { const st = lobby2.st; return { mode: st.mode, players: st.players.map((p) => ({ id: p.id, name: p.name })), who: st.who, teams: st.teams, q: st.q, diff: st.diff }; };
+for (const id of ['o2Q', 'o2Diff', 'o2Mode']) $(id).addEventListener('change', () => send2v2Lobby());
 
 /** Host: someone asks to change something in the lobby. `from` is who asked. */
 function host2v2Change(from, m) {
@@ -9767,7 +9780,7 @@ function host2v2Change(from, m) {
   if (!p) return;
   if (m.t === 'seat') {
     const k = m.k;
-    if (k && !SEAT_KEYS.includes(k)) return;
+    if (k && !modeKeys(st.mode).includes(k)) return;
     if (k && st.who[k] && st.who[k] !== from) return;               // taken
     for (const s of SEAT_KEYS) if (st.who[s] === from) st.who[s] = null;
     if (k) st.who[k] = from;
@@ -9833,33 +9846,37 @@ function render2v2() {
   $('btnO2Start').hidden = !host;
   if (!st) return;
   const nameOf = (id) => st.players.find((p) => p.id === id)?.name ?? '?';
-  for (const b of document.querySelectorAll('#o2Seats button.seat')) {
-    const k = b.dataset.k, who = st.who[k];
-    b.innerHTML = '';
-    const t = document.createElement('b'); t.textContent = `${SEAT_NAME[k]}: `;
-    b.append(t, document.createTextNode(who ? `${nameOf(who)}${who === L2.id ? ' (you)' : ''}` : 'open (CPU) · sit here'));
-    b.classList.toggle('mine', who === L2.id);
-    b.disabled = !!who && who !== L2.id;
+  const mode = st.mode ?? '2v2', keys = modeKeys(mode);
+  for (const [box, side] of [[$('o2SeatsHome'), 'home'], [$('o2SeatsAway'), 'away']]) {
+    box.innerHTML = '';
+    for (const k of keys.filter((x) => x.startsWith(side))) {
+      const who = st.who[k], b = document.createElement('button');
+      b.className = 'ghost seat'; b.dataset.k = k;
+      const t = document.createElement('b'); t.textContent = `${MODES[mode].names[k]}: `;
+      b.append(t, document.createTextNode(who ? `${nameOf(who)}${who === L2.id ? ' (you)' : ''}` : 'open (CPU) · sit here'));
+      b.classList.toggle('mine', who === L2.id);
+      b.disabled = !!who && who !== L2.id;
+      b.addEventListener('click', () => seatClick(k));
+      box.appendChild(b);
+    }
   }
   $('o2TeamHome').value = st.teams.home; $('o2TeamAway').value = st.teams.away;
   const mySide = (side) => SEAT_KEYS.some((k) => st.who[k] === L2.id && k.startsWith(side));
   $('o2TeamHome').disabled = !(host || mySide('home'));
   $('o2TeamAway').disabled = !(host || mySide('away'));
-  if (!host) { $('o2Q').value = String(st.q); $('o2Diff').value = st.diff; }
-  const seated = SEAT_KEYS.filter((k) => st.who[k]);
+  if (!host) { $('o2Q').value = String(st.q); $('o2Diff').value = st.diff; $('o2Mode').value = mode; }
+  const seated = keys.filter((k) => st.who[k]);
   const watching = st.players.filter((p) => !Object.values(st.who).includes(p.id)).map((p) => p.name);
   const same = st.teams.home === st.teams.away;
-  $('o2Match').textContent = `${teamName(st.teams.away)} at ${teamName(st.teams.home)}, ${st.q} min quarters. ${st.players.length} in the room${watching.length ? ` (watching: ${watching.join(', ')})` : ''}.${same ? ' Pick different teams.' : ''}${host ? '' : ' The room creator tips off.'}`;
+  $('o2Match').textContent = `${mode}: ${teamName(st.teams.away)} at ${teamName(st.teams.home)}, ${st.q} min quarters. ${st.players.length} in the room${watching.length ? ` (watching: ${watching.join(', ')})` : ''}.${same ? ' Pick different teams.' : ''}${host ? '' : ' The room creator tips off.'}`;
   $('btnO2Start').disabled = same || !seated.length;
 }
-for (const b of document.querySelectorAll('#o2Seats button.seat')) {
-  b.addEventListener('click', () => {
-    const L2 = lobby2;
-    if (!L2?.st || (live && live.phase !== 'final')) return;
-    const k = L2.st.who[b.dataset.k] === L2.id ? null : b.dataset.k;       // click your own seat to stand up
-    if (L2.role === 'host') host2v2Change('host', { t: 'seat', k });
-    else net.link.send({ t: 'seat', k, to: 'host' });
-  });
+function seatClick(key) {
+  const L2 = lobby2;
+  if (!L2?.st || (live && live.phase !== 'final')) return;
+  const k = L2.st.who[key] === L2.id ? null : key;       // click your own spot to stand up
+  if (L2.role === 'host') host2v2Change('host', { t: 'seat', k });
+  else net.link.send({ t: 'seat', k, to: 'host' });
 }
 for (const [id, side] of [['o2TeamHome', 'home'], ['o2TeamAway', 'away']]) {
   $(id).addEventListener('change', () => {
@@ -9876,9 +9893,9 @@ $('btnO2Start').addEventListener('click', () => {
   const st = L2.st;
   if (st.teams.home === st.teams.away) return;
   const who = {}, names = {};
-  for (const k of SEAT_KEYS) if (st.who[k]) { who[k] = st.who[k]; names[k] = st.players.find((p) => p.id === st.who[k])?.name ?? k; }
+  for (const k of modeKeys(st.mode)) if (st.who[k]) { who[k] = st.who[k]; names[k] = st.players.find((p) => p.id === st.who[k])?.name ?? k; }
   if (!Object.keys(who).length) return;
-  const cfg = { mode: '2v2', home: st.teams.home, away: st.teams.away, seed: Math.floor(Math.random() * 1e9) + 1, quarter: Number($('o2Q').value), difficulty: $('o2Diff').value, keys: Object.keys(who), who, names };
+  const cfg = { mode: st.mode, roles: MODES[st.mode].roles, home: st.teams.home, away: st.teams.away, seed: Math.floor(Math.random() * 1e9) + 1, quarter: Number($('o2Q').value), difficulty: $('o2Diff').value, keys: Object.keys(who), who, names };
   netMessage('');
   begin(makeOnlineGame(data, cfg, Object.keys(who).find((k) => who[k] === 'host') ?? null));
   net.hostStart(live, cfg);
@@ -9908,8 +9925,8 @@ try { presShown = localStorage.getItem('mini2k.shown') === '1'; $('presName').va
 const presName = () => ($('presName').value.trim()).slice(0, 16);
 function presButton() { $('btnPresGo').textContent = presShown && presName() ? 'Hide me' : 'Show me'; }
 function presDoing() {
-  if (!live) return !$('online2').hidden ? '2v2 lobby' : !$('online').hidden ? 'online lobby' : 'menu';
-  if (net?.multi) return 'playing 2v2';
+  if (!live) return !$('online2').hidden ? 'multiplayer lobby' : !$('online').hidden ? 'online lobby' : 'menu';
+  if (net?.multi) return `playing ${net.cfg?.mode ?? '2v2'}`;
   if (net) return 'playing online';
   return live.user ? 'playing the CPU' : 'watching CPU';
 }
