@@ -107,6 +107,16 @@
   .online details summary { cursor: pointer; color: var(--yel); }
   .online details label { display: grid; grid-template-columns: 220px 1fr; gap: 12px; align-items: center; margin: 10px 0; }
   .online details p { text-transform: none; color: var(--dim); margin: 8px 0; }
+  .presence { margin: 18px 4px 0; padding: 12px 16px; background: var(--panel2); font: 20px/1.6 var(--tiny); }
+  .presence .prow { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .presence .prow b { font: 20px/1.4 var(--px); color: var(--yel); font-weight: normal; margin-right: auto; }
+  .presence input { width: 220px; }
+  .presence button { padding: 4px 14px 6px; }
+  #presList { display: flex; flex-wrap: wrap; gap: 4px 26px; margin-top: 10px; text-transform: none; color: var(--dim); min-height: 30px; }
+  #presList .p { white-space: nowrap; }
+  #presList .p b { color: #fff; font-weight: normal; }
+  #presList .dot { display: inline-block; width: 10px; height: 10px; margin-right: 8px; background: #6b7686; vertical-align: 1px; }
+  #presList .dot.on { background: #44e06a; box-shadow: 0 0 6px #44e06a; }
   .seats { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 26px; margin: 18px 4px 0; }
   .seats .side { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: var(--panel2); }
   .seats h2 { font: 20px/1.4 var(--px); margin: 0; color: var(--yel); }
@@ -155,6 +165,10 @@
       <label>Crowd <input type="checkbox" class="setCrowd"></label>
       <label>Controls <input type="checkbox" class="setHints"></label>
       <label>FPS <input type="checkbox" class="setFps"></label>
+    </div>
+    <div class="presence" id="presence">
+      <div class="prow"><b>Online now <span id="presCount"></span></b><input type="text" id="presName" maxlength="16" autocomplete="off" spellcheck="false" placeholder="YOUR NAME"><button class="ghost" id="btnPresGo">Show me</button></div>
+      <div id="presList"></div>
     </div>
     <div class="actions"><button id="btnStart">Tip Off Now</button><button class="ghost" id="btnOnline">Play a friend online</button><button class="ghost" id="btnOnline2">Play 2v2 Online</button><button class="ghost" id="btnDemo">Watch CPU vs CPU</button><button class="ghost btnFull">Fullscreen</button></div>
   </div>
@@ -8817,6 +8831,76 @@ export class HubLink {
   close() { this.closed = true; try { this.ws?.close(); this.bc?.close(); } catch { /* gone */ } }
 }
 </script>
+<script type="text/plain" data-mod="net/presence.js">// "Online now": who has the game open, by name, for how long, and whether they are active.
+//
+// Cheap on purpose (the server is paid by use): one small request about once a minute (every 30 s
+// while the list is on screen), and none at all once the player has been idle for 15 minutes, so a
+// forgotten tab stops costing anything and drops off the list. The answer to each check-in is the
+// list itself, so seeing the list costs nothing extra. The server keeps it in memory (server.js).
+
+const IDLE_STOP = 15 * 60 * 1000;
+
+export class Presence {
+  /**
+   * @param base     the Mini2K server address (https://...)
+   * @param opts     { name(): string, doing(): string, listShown(): boolean, onList({n, list}|null, err) }
+   */
+  constructor(base, opts) {
+    this.base = base; this.o = opts;
+    this.lastAct = Date.now(); this.lastSent = 0; this.timer = null; this.busy = false; this.stopped = false;
+    let id = null;
+    try { id = localStorage.getItem('mini2k.pid'); } catch { /* private mode */ }
+    if (!id || !/^[A-Za-z0-9_-]{6,40}$/.test(id)) {
+      id = 'u' + [...crypto.getRandomValues(new Uint8Array(9))].map((b) => b.toString(16).padStart(2, '0')).join('');
+      try { localStorage.setItem('mini2k.pid', id); } catch { /* ignore */ }
+    }
+    this.id = id;
+  }
+  /** The player did something (key, click, mouse). Coming back from idle checks in right away. */
+  poke() {
+    const was = Date.now() - this.lastAct;
+    this.lastAct = Date.now();
+    if (was > IDLE_STOP) this.soon(500);
+  }
+  start() { this.soon(300); }
+  soon(ms) { clearTimeout(this.timer); this.timer = setTimeout(() => this.tick(), ms); }
+  async tick() {
+    if (this.stopped) return;
+    const idle = Date.now() - this.lastAct;
+    const every = this.o.listShown() ? 30000 : 60000;
+    if (idle < IDLE_STOP) await this.send();
+    else this.o.onList?.(null, 'idle');
+    this.soon(every);
+  }
+  async send(extra = {}) {
+    if (this.busy) return;
+    this.busy = true;
+    try {
+      const body = JSON.stringify({ id: this.id, name: this.o.name(), idle: Math.round((Date.now() - this.lastAct) / 1000), doing: this.o.doing(), ...extra });
+      // text/plain keeps it a "simple" request: no extra preflight request
+      const r = await fetch(this.base + '/presence', { method: 'POST', body, headers: { 'Content-Type': 'text/plain' }, cache: 'no-store' });
+      if (!r.ok) throw new Error(String(r.status));
+      this.lastSent = Date.now();
+      this.o.onList?.(await r.json(), null);
+    } catch (e) { this.o.onList?.(null, 'down'); }
+    this.busy = false;
+  }
+  /** Name changed or the list just came on screen: check in now (at most every 5 s). */
+  now() { if (Date.now() - this.lastSent > 5000) this.soon(50); }
+  /** Page closing: take us off the list. */
+  bye() {
+    try { navigator.sendBeacon?.(this.base + '/presence', new Blob([JSON.stringify({ id: this.id, bye: true })], { type: 'text/plain' })); } catch { /* best effort */ }
+  }
+}
+
+/** "just now", "1 minute", "43 minutes", "1 hr 5 min". */
+export function onlineFor(min) {
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min} minute${min === 1 ? '' : 's'}`;
+  const h = Math.floor(min / 60), m = min % 60;
+  return `${h} hr${m ? ` ${m} min` : ''}`;
+}
+</script>
 <script type="text/plain" data-mod="main.js">// Browser entry: loads data, runs the fixed 60 Hz update loop, renders with Canvas 2D
 // (pixel-art broadcast view in src/render, or the old top-down view as "classic").
 // All game logic lives in src/engine (pure); this file only wires input -> engine -> renderer.
@@ -8837,6 +8921,7 @@ import { SW, SH } from '@@render/view.js@@';
 import { loadPixelFonts } from '@@ui/pixelfont.js@@';
 import { Session, makeOnlineGame } from '@@net/session.js@@';
 import { makeSignal, newRoomCode, cleanCode, iceServers, hostOffer, guestAnswer, packCode, unpackCode, mergeIce, hasTurn, relayCount, serverBase, DEFAULT_SERVER, wakeServer, ServerLink, newPipeId, HubLink } from '@@net/peer.js@@';
+import { Presence, onlineFor } from '@@net/presence.js@@';
 
 loadPixelFonts();
 if (window.__MINI2K_DATA) document.querySelector('.head a')?.remove();   // the one-file build has no roster page
@@ -9813,6 +9898,72 @@ function on2v2Closed(why) {
   else o2Status('Lost the connection to the Mini2K server.', true);
 }
 window.__lobby2 = () => lobby2 && { role: lobby2.role, code: lobby2.code, st: lobby2.st };
+
+
+// ====================================================================== online now
+// Who has the game open (name, time online, green dot = active). See src/net/presence.js: one small
+// check-in a minute, nothing once you have been idle 15 minutes.
+let presence = null, presShown = false;
+try { presShown = localStorage.getItem('mini2k.shown') === '1'; $('presName').value = localStorage.getItem('mini2k.name') ?? ''; } catch { /* private mode */ }
+const presName = () => ($('presName').value.trim()).slice(0, 16);
+function presButton() { $('btnPresGo').textContent = presShown && presName() ? 'Hide me' : 'Show me'; }
+function presDoing() {
+  if (!live) return !$('online2').hidden ? '2v2 lobby' : !$('online').hidden ? 'online lobby' : 'menu';
+  if (net?.multi) return 'playing 2v2';
+  if (net) return 'playing online';
+  return live.user ? 'playing the CPU' : 'watching CPU';
+}
+function presRender(r, err) {
+  const box = $('presList');
+  if (!r) {
+    if (err === 'idle') { box.textContent = 'You were idle, so you are off the list. Move the mouse to come back.'; $('presCount').textContent = ''; }
+    else if (err === 'down') { box.textContent = 'The online list is not available right now.'; $('presCount').textContent = ''; }
+    return;
+  }
+  $('presCount').textContent = `(${r.n})`;
+  box.innerHTML = '';
+  if (!r.list.length) { box.textContent = 'Nobody yet. Type your name and press Show me.'; return; }
+  for (const p of r.list) {
+    const d = document.createElement('span'); d.className = 'p';
+    const dot = document.createElement('i'); dot.className = `dot${p.active ? ' on' : ''}`;
+    const nm = document.createElement('b'); nm.textContent = p.name + (p.me ? ' (you)' : '');
+    d.append(dot, nm, document.createTextNode(` ${onlineFor(p.min)}${p.active ? '' : `, idle ${p.idleMin} min`}${p.doing ? ` · ${p.doing}` : ''}`));
+    box.appendChild(d);
+  }
+  if (!presShown || !presName()) {
+    const t = document.createElement('span'); t.textContent = 'Type your name and press Show me so others can see you.';
+    box.appendChild(t);
+  }
+}
+$('btnPresGo').addEventListener('click', () => {
+  if (presShown && presName()) presShown = false;
+  else if (presName()) presShown = true;
+  else { $('presName').focus(); return; }
+  try { localStorage.setItem('mini2k.shown', presShown ? '1' : '0'); localStorage.setItem('mini2k.name', presName()); } catch { /* ignore */ }
+  if (!$('o2Name').value.trim()) $('o2Name').value = presName();
+  presButton();
+  if (!presShown) presence?.send({ bye: true }); else presence?.soon(50);
+});
+$('presName').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') { presShown = false; $('btnPresGo').click(); } });
+$('presName').addEventListener('input', presButton);
+presButton();
+// any key, click or mouse movement counts as being active
+for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart']) window.addEventListener(ev, () => presence?.poke(), { passive: true, capture: true });
+(async () => {
+  if (srv.checking) await srv.checking;
+  const base = srv.ok ? srv.base : serverBase(netCfg.serverUrl);
+  presence = new Presence(base, {
+    name: () => (presShown ? presName() : ''),
+    doing: presDoing,
+    listShown: () => !$('menu').hidden,
+    onList: presRender,
+  });
+  presence.start();
+  window.__presence = presence;
+  addEventListener('pagehide', () => { if (presShown) presence.bye(); });
+  // back on the menu: fresh list
+  new MutationObserver(() => { if (!$('menu').hidden) presence.now(); }).observe($('menu'), { attributes: true, attributeFilter: ['hidden'] });
+})();
 </script>
 <script type="module">
 window.__MINI2K_DATA = JSON.parse(document.getElementById('mini2k-data').textContent);

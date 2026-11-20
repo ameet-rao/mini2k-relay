@@ -6,6 +6,9 @@
 //   WS   /ws?room=X   a room: every message one screen sends is passed to the other screens in the room.
 //                     The game uses one room for finding each other (room code) and, when school wifi
 //                     blocks a direct connection, a second room to carry the game itself.
+//   POST /presence    "who's online": a page checks in about once a minute with its name and how long
+//                     its player has been idle; the answer is everyone online. Kept in memory only.
+//                     Someone idle for 15 minutes, or whose page stopped checking in, drops off.
 // The server never looks inside the messages. It sends its own {"t":"_n","n":count} to everyone in a
 // room whenever someone joins or leaves, so each side knows when the other one is there.
 //
@@ -27,6 +30,11 @@ const MAX_CONN = 400;             // whole server
 
 const rooms = new Map();          // room -> Set<Client>
 let conns = 0;
+const IDLE_DROP = 15 * 60 * 1000;  // presence: idle this long and you are off the list
+const GONE_DROP = 150 * 1000;       // presence: page stopped checking in (closed, asleep)
+const ACTIVE = 2 * 60 * 1000;       // presence: green dot if they did something in the last 2 minutes
+const MAX_PEOPLE = 500;
+const people = new Map();           // id -> { name, since, lastActive, lastSeen, doing }
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 
 // ------------------------------------------------------------------ http
@@ -36,7 +44,19 @@ const server = http.createServer((req, res) => {
   const cors = { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' };
   if (url.pathname === '/health') {
     res.writeHead(200, { ...cors, 'Content-Type': 'text/plain' });
-    res.end(`ok ${rooms.size} rooms, ${conns} connections`);
+    res.end(`ok ${rooms.size} rooms, ${conns} connections, ${people.size} online`);
+    return;
+  }
+  if (url.pathname === '/presence' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (d) => { body += d; if (body.length > 1024) req.destroy(); });
+    req.on('end', () => {
+      let m = {};
+      try { m = JSON.parse(body); } catch { /* bad body: just answer with the list */ }
+      const answer = presence(m);
+      res.writeHead(200, { ...cors, 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(answer));
+    });
     return;
   }
   if (url.pathname === '/' || url.pathname === '/index.html') {
@@ -74,6 +94,29 @@ function count(room) {
   if (!set) return;
   const msg = JSON.stringify({ t: '_n', n: set.size });
   for (const c of set) c.sendText(msg);
+}
+
+// ------------------------------------------------------------------ who's online
+
+function presence(m) {
+  const now = Date.now();
+  for (const [id, p] of people) if (now - p.lastActive > IDLE_DROP || now - p.lastSeen > GONE_DROP) people.delete(id);
+  const id = typeof m.id === 'string' && /^[A-Za-z0-9_-]{6,40}$/.test(m.id) ? m.id : null;
+  const name = String(m.name ?? '').replace(/[^\p{L}\p{N} ._'-]/gu, '').trim().slice(0, 16);
+  if (id && m.bye) people.delete(id);
+  else if (id && name) {
+    const idle = Math.max(0, Math.min(IDLE_DROP, Number(m.idle) * 1000 || 0));
+    if (idle < IDLE_DROP) {
+      let p = people.get(id);
+      if (!p && people.size < MAX_PEOPLE) { p = { since: now }; people.set(id, p); }
+      if (p) Object.assign(p, { name, lastActive: now - idle, lastSeen: now, doing: String(m.doing ?? '').slice(0, 24) });
+    }
+  }
+  const list = [...people.entries()]
+    .sort((a, b) => a[1].since - b[1].since)
+    .slice(0, 100)
+    .map(([pid, p]) => ({ name: p.name, min: Math.floor((now - p.since) / 60000), active: now - p.lastActive < ACTIVE, idleMin: Math.floor((now - p.lastActive) / 60000), doing: p.doing, me: pid === id || undefined }));
+  return { n: people.size, list };
 }
 
 // ------------------------------------------------------------------ websocket (RFC 6455, text frames)

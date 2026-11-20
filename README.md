@@ -36,3 +36,8 @@ Rebuild with `node tools/build_standalone.mjs --online` and copy `dist/mini2k-on
 ## Limits (in server.js)
 4 connections per room, 2 MB per message, 3000 messages per 10 s per connection, 400 connections in all.
 Traffic: a full game through the server is a few MB each way, far inside the free plan.
+
+
+## Who's online
+
+`POST /presence` keeps a small in-memory list of who has the game open (name, time online, active or idle). Each page checks in about once a minute and stops after 15 minutes idle, so it costs almost nothing. Nothing is saved to disk.
