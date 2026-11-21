@@ -124,6 +124,9 @@
   .seats button.seat { text-align: left; font: 20px/1.5 var(--tiny); text-transform: none; }
   .seats button.seat.mine { outline: 4px solid var(--yel); }
   .seats button.seat b { font-weight: normal; color: var(--dim); }
+  .picklist { display: flex; flex-direction: column; gap: 8px; }
+  .picklist select, .sublab select { font: 18px/1.4 var(--tiny); text-transform: none; }
+  .sublab { display: flex; flex-direction: column; gap: 6px; font: 18px/1.3 var(--tiny); color: var(--dim); }
   #netBadge { position: fixed; top: 6px; left: 8px; z-index: 4; font: 20px/1.2 var(--tiny); color: #c8f08f; text-shadow: 2px 2px 0 #000; pointer-events: none; }
   #netBadge.bad { color: #ff8a6a; }
   #netMsg { position: fixed; top: 18%; left: 50%; transform: translateX(-50%); z-index: 6; background: var(--panel); padding: 16px 24px; text-align: center; max-width: 80vw;
@@ -171,7 +174,7 @@
       <div class="prow"><b>Online now <span id="presCount"></span></b><input type="text" id="presName" maxlength="16" autocomplete="off" spellcheck="false" placeholder="YOUR NAME"><button class="ghost" id="btnPresGo">Show name</button></div>
       <div id="presList"></div>
     </div>
-    <div class="actions"><button id="btnStart">Tip Off Now</button><button class="ghost" id="btnOnline">Play a friend online</button><button class="ghost" id="btnOnline2">Multiplayer (2v2 / 3v3)</button><button class="ghost" id="btnDemo">Watch CPU vs CPU</button><button class="ghost btnFull">Fullscreen</button></div>
+    <div class="actions"><button id="btnStart">Tip Off Now</button><button class="ghost" id="btnOnline">Play a friend online</button><button class="ghost" id="btnOnline2">Multiplayer (2v2 / 3v3)</button><button class="ghost" id="btnStreet">StreetBall 3on3 online</button><button class="ghost" id="btnStreetCpu">StreetBall vs CPU</button><button class="ghost" id="btnDemo">Watch CPU vs CPU</button><button class="ghost btnFull">Fullscreen</button></div>
   </div>
 </div>
 
@@ -248,13 +251,13 @@
 
 <div class="overlay online" id="online2" hidden>
   <div class="card">
-    <div class="head"><h1>Multiplayer online <span class="tag">2v2 or 3v3</span></h1></div>
-    <p class="sub">One person creates a room and friends join with its code. 2v2: on each team one person runs the PG and C, the other the SG, SF and PF. 3v3: one runs the PG and SG, one the SF, one the PF and C. An open spot is played by the CPU. Off the ball, Q switches between your own players. Needs the Mini2K server.</p>
+    <div class="head"><h1>Multiplayer online <span class="tag">2v2, 3v3 or StreetBall</span></h1></div>
+    <p class="sub">One person creates a room and friends join with its code. 2v2: on each team one person runs the PG and C, the other the SG, SF and PF. 3v3: one runs the PG and SG, one the SF, one the PF and C. StreetBall 3on3: half court outdoors, three a side, one player each, first to 21 by 1s and 2s, win by two, no fouls. An open spot is played by the CPU. Off the ball, Q switches between your own players. Needs the Mini2K server.</p>
     <div class="picks">
       <label for="o2Name">Your name<input type="text" id="o2Name" maxlength="12" autocomplete="off" spellcheck="false" placeholder="PLAYER"></label>
       <label for="o2Via">Connect through<select id="o2Via"><option value="server" selected>Internet: Mini2K server</option><option value="local">This computer: tabs (test)</option></select></label>
-      <label for="o2Mode">Mode (room creator picks)<select id="o2Mode"><option value="2v2" selected>2v2 (4 players)</option><option value="3v3">3v3 (6 players)</option></select></label>
-      <label for="o2Q">Quarter length (room creator picks)<select id="o2Q"><option value="2">2 minutes</option><option value="5">5 minutes</option><option value="6">6 minutes</option><option value="8">8 minutes</option><option value="12" selected>12 minutes</option></select></label>
+      <label for="o2Mode">Mode (room creator picks)<select id="o2Mode"><option value="2v2" selected>2v2 (4 players)</option><option value="3v3">3v3 (6 players)</option><option value="street">StreetBall 3on3 (6 players, to 21)</option></select></label>
+      <label for="o2Q" id="o2QLabel">Quarter length (room creator picks)<select id="o2Q"><option value="2">2 minutes</option><option value="5">5 minutes</option><option value="6">6 minutes</option><option value="8">8 minutes</option><option value="12" selected>12 minutes</option></select></label>
       <label for="o2Diff">Meter difficulty (room creator picks)<select id="o2Diff"><option value="easy">Super Easy</option><option value="rookie">Rookie</option><option value="pro" selected>Pro</option><option value="allstar">All-Star</option></select></label>
     </div>
     <div class="row2" id="o2Choose">
@@ -265,8 +268,8 @@
     </div>
     <div class="row2" id="o2Room" hidden><span>Room code</span><span class="roomcode" id="o2RoomCode"></span><span class="note">Tell your friends this code.</span></div>
     <div class="seats" id="o2Seats" hidden>
-      <div class="side"><h2>Home</h2><select id="o2TeamHome"></select><div class="seatlist" id="o2SeatsHome"></div></div>
-      <div class="side"><h2>Away</h2><select id="o2TeamAway"></select><div class="seatlist" id="o2SeatsAway"></div></div>
+      <div class="side"><h2>Home</h2><select id="o2TeamHome"></select><div class="picklist" id="o2PicksHome" hidden></div><div class="seatlist" id="o2SeatsHome"></div></div>
+      <div class="side"><h2>Away</h2><select id="o2TeamAway"></select><div class="picklist" id="o2PicksAway" hidden></div><div class="seatlist" id="o2SeatsAway"></div></div>
     </div>
     <div class="status" id="o2Status"></div>
     <div class="match" id="o2Match"></div>
@@ -276,6 +279,19 @@
 
 <div id="netBadge" hidden></div>
 <div id="netMsg" hidden><p id="netMsgText"></p><button id="btnNetMsg" hidden></button></div>
+
+<div class="overlay online" id="streetSetup" hidden>
+  <div class="card">
+    <div class="head"><h1>StreetBall 3on3 <span class="tag">vs CPU</span></h1></div>
+    <p class="sub">Pick any three players in the league for your squad and three for the CPU. The team only picks the jerseys. First to 21 by 1s and 2s, win by two, no fouls.</p>
+    <div class="seats">
+      <div class="side"><h2>Your squad</h2><label class="sublab">Jerseys<select id="stTeamHome"></select></label><div class="picklist" id="stPicksHome"></div><button class="ghost" id="stRandHome">Random three</button></div>
+      <div class="side"><h2>CPU squad</h2><label class="sublab">Jerseys<select id="stTeamAway"></select></label><div class="picklist" id="stPicksAway"></div><button class="ghost" id="stRandAway">Random three</button></div>
+    </div>
+    <div class="status" id="stStatus"></div>
+    <div class="actions"><button id="btnStGo">Check ball</button><button class="ghost" id="btnStBack">Back</button><button class="ghost btnFull">Fullscreen</button></div>
+  </div>
+</div>
 
 <div class="overlay" id="final" hidden>
   <div class="card" style="width:min(760px,92vw)">
@@ -392,6 +408,26 @@ export const DEFAULT_RULES = {
 };
 
 export const SHOT_POINTS = { rim: 2, mid: 2, three: 3 };
+
+/**
+ * StreetBall 3on3 (its own mode only): half court, 3 on 3, first to 21 by 1s and 2s, win by two,
+ * no fouls, no free throws, no timeouts, no subs, no game clock (a 12-second shot clock).
+ * The long period just keeps the game clock out of the way; the game ends on the score.
+ */
+export const STREET_RULES = {
+  street: true, target: 21, winBy: 2,
+  periods: 1, quarterMinutes: 600, otMinutes: 600,
+  shotClock: 12, shotClockReset: 12, timeouts: 0,
+};
+export const STREET_POINTS = { rim: 1, mid: 1, three: 2 };
+
+/** StreetBall: has a team reached the target with a big enough lead? */
+export function streetWinner(score, rules) {
+  for (const [a, b] of [['home', 'away'], ['away', 'home']]) {
+    if (score[a] >= rules.target && score[a] - score[b] >= rules.winBy) return a;
+  }
+  return null;
+}
 
 export function makeRules(overrides = {}) {
   return { ...DEFAULT_RULES, ...overrides };
@@ -816,7 +852,7 @@ export class Game {
    * @param data  buildIndex(...) result, or {players, teams} parsed JSON
    * @param opts  { home:'PHI', away:'BOS', seed, rules:{quarterMinutes,...}, autoSubs:{home,away} }
    */
-  constructor(data, { home, away, seed = 1, rules = {}, autoSubs = { home: true, away: true } } = {}) {
+  constructor(data, { home, away, seed = 1, rules = {}, autoSubs = { home: true, away: true }, lineups = null } = {}) {
     this.data = data.byId ? data : buildIndex(data.players, data.teams);
     this.rules = R.makeRules(rules);
     this.rng = new Rng(seed);
@@ -836,18 +872,20 @@ export class Game {
       next: { kind: 'period' },
       streak: {},
       run: { home: 0, away: 0 },
-      teams: { home: this.makeTeam('home', home), away: this.makeTeam('away', away) },
+      teams: { home: this.makeTeam('home', home, lineups?.home), away: this.makeTeam('away', away, lineups?.away) },
     };
     this.emit({ type: 'game_start', home, away, seed, rules: { ...this.rules } });
   }
 
   // ------------------------------------------------------------------ setup
 
-  makeTeam(side, teamId) {
+  makeTeam(side, teamId, lineup = null) {
     const T = this.data.teams[teamId];
     if (!T) throw new Error(`Unknown team ${teamId}`);
     const byId = this.data.byId;
-    const roster = T.depth_order.filter((id) => byId[id]);
+    // StreetBall: the three players picked from anyone in the league (the team gives the jerseys)
+    const own = this.rules.street && Array.isArray(lineup) && lineup.length === 3 && lineup.every((id) => byId[id]?.available) && new Set(lineup).size === 3;
+    const roster = own ? [...lineup] : T.depth_order.filter((id) => byId[id]);
     const team = {
       side, id: teamId, name: T.name, colors: T.colors, roster,
       starters: [], onCourt: [], pf: {}, played: {}, energy: {},
@@ -860,6 +898,7 @@ export class Game {
 
     // Starters: defaults, replacing anyone unavailable with the next healthy player of the same group.
     const starters = [];
+    if (own) { team.starters = [...lineup]; team.onCourt = [...lineup]; return team; }
     for (const id of T.default_starters) {
       if (byId[id]?.available) { starters.push(id); continue; }
       const g = byId[id] ? posGroup(byId[id]) : 'W';
@@ -867,8 +906,8 @@ export class Game {
         ?? roster.find((x) => byId[x].available && !starters.includes(x) && !T.default_starters.includes(x));
       starters.push(sub);
     }
-    team.starters = starters;
-    team.onCourt = [...starters];
+    team.starters = this.rules.street ? streetThree(starters, byId) : starters;
+    team.onCourt = [...team.starters];
     return team;
   }
 
@@ -921,6 +960,14 @@ export class Game {
     if (s.period > 1) this.subWindow('period');
     this.emit({ type: 'period_start', lineups: { home: [...s.teams.home.onCourt], away: [...s.teams.away.onCourt] } });
 
+    if (this.rules.street) {
+      // StreetBall: no tip-off, a coin flip decides who checks the ball first
+      s.possession = this.rng.chance(0.5) ? 'home' : 'away';
+      s.tipWinner = s.possession;
+      this.emit({ type: 'coin_flip', team: s.possession });
+      s.next = { kind: 'period' };
+      return;
+    }
     const poss = R.periodStartPossession(s.period, s.tipWinner, this.rules);
     if (poss) {
       s.possession = poss;
@@ -1176,7 +1223,7 @@ export class Game {
     }
 
     const cp = contest ? this.p(contest) : null;
-    let fouled = forceFoul ?? (!heave && !!contest && rng.chance(M.shootingFoulProb(sp, type, cp, L) * (fastBreak ? 1.3 : 1) * foulScale));
+    let fouled = this.rules.street ? false : forceFoul ?? (!heave && !!contest && rng.chance(M.shootingFoulProb(sp, type, cp, L) * (fastBreak ? 1.3 : 1) * foulScale));
     let pMake = M.shotMakeProb(sp, type, cp, L, {
       assisted: !!assist, fastBreak, putback, early, lateClock, lastShot, heave,
       energy: off.energy[shooter], streak: s.streak[shooter] ?? 0, difficultyMod,
@@ -1185,7 +1232,7 @@ export class Game {
     pMake *= makeScale;
     if (makeProb != null) pMake = makeProb;
     const made = forceMade ?? rng.chance(pMake);
-    const pts = R.SHOT_POINTS[type];
+    const pts = (this.rules.street ? R.STREET_POINTS : R.SHOT_POINTS)[type];
     s.streak[shooter] = made ? Math.max(0, s.streak[shooter] ?? 0) + 1 : Math.min(0, s.streak[shooter] ?? 0) - 1;
 
     if (fouled) {
@@ -1299,7 +1346,7 @@ export class Game {
     this.emit({ type: 'rebound', team: winSide, player: rebounder, off: offWins });
 
     // Loose-ball foul by the team that lost the battle.
-    if (rng.chance(MODEL.looseBallFoulOnMiss)) {
+    if (!this.rules.street && rng.chance(MODEL.looseBallFoulOnMiss)) {
       const loseSide = other(winSide);
       const fouler = rng.weighted(s.teams[loseSide].onCourt, (id) => this.p(id).tendencies.pf_per36 * this.p(id).attrs.strength);
       const { penalty } = this.commitFoul(loseSide, fouler, winSide, rebounder, 'loose_ball', { protect: [rebounder] });
@@ -1362,6 +1409,14 @@ export class Game {
     s.score[side] += pts;
     s.run[side] += pts;
     s.run[other(side)] = 0;
+    // StreetBall: the game ends the moment a team reaches the target with a big enough lead
+    if (this.rules.street && !s.over) {
+      const w = R.streetWinner(s.score, this.rules);
+      if (w) {
+        s.over = true; s.winner = w;
+        this.emit({ type: 'game_end', winner: w, home: s.score.home, away: s.score.away });
+      }
+    }
   }
 
   changePossession(reason) {
@@ -1414,6 +1469,7 @@ export class Game {
 
   /** Apply auto-subs for both teams if the rules allow subbing on this dead ball. */
   subWindow(reason, { protect = [] } = {}) {
+    if (this.rules.street) return;     // StreetBall: the three who start, finish
     const s = this.state;
     const allowed = R.canSubstitute(reason, s.period, s.clock, this.rules);
     for (const side of SIDES) {
@@ -1443,6 +1499,28 @@ export class Game {
     team.onCourt[i] = inId;
     this.emit({ type: 'sub', team: side, out: outId, in: inId, reason });
   }
+}
+
+/** StreetBall: a team's usual three (for menus): its healthy starters, topped up from the depth chart. */
+export function teamStreetThree(data, teamId) {
+  const T = data.teams[teamId], byId = data.byId;
+  const ok = (id) => byId[id]?.available;
+  const five = T.default_starters.filter(ok);
+  for (const id of T.depth_order) if (five.length < 5 && ok(id) && !five.includes(id)) five.push(id);
+  return streetThree(five, byId);
+}
+
+/** StreetBall lineup: three of the five starters (best guard, best big, best of the rest), in starter order. */
+function streetThree(starters, byId) {
+  const ovr = (id) => byId[id]?.overall ?? 0;
+  const best = (ids) => [...ids].sort((a, b) => ovr(b) - ovr(a))[0];
+  const pick = [];
+  const g = best(starters.filter((id) => posGroup(byId[id]) === 'G'));
+  if (g) pick.push(g);
+  const b = best(starters.filter((id) => posGroup(byId[id]) === 'B' && !pick.includes(id)));
+  if (b) pick.push(b);
+  while (pick.length < 3) pick.push(best(starters.filter((id) => !pick.includes(id))));
+  return starters.filter((id) => pick.includes(id));
 }
 
 function jumpScore(p) {
@@ -1901,7 +1979,7 @@ const SHOT_NAME = { rim: 'layup', mid: 'jumper', three: '3-pointer' };
 const TOV_NAME = {
   bad_pass: 'bad pass', lost_ball: 'lost ball', bad_pass_out_of_bounds: 'bad pass (out of bounds)',
   traveling: 'traveling', out_of_bounds: 'stepped out of bounds', offensive_foul: 'offensive foul',
-  shot_clock: 'shot clock violation', eight_second: '8-second violation',
+  not_cleared: "didn't clear the ball", shot_clock: 'shot clock violation', eight_second: '8-second violation',
   five_second_inbound: '5-second inbound violation', backcourt: 'backcourt violation', three_seconds: '3 seconds in the key',
 };
 
@@ -1917,6 +1995,7 @@ export function describe(ev, byId, teams = { home: 'HOME', away: 'AWAY' }) {
     case 'game_start': return `${ev.away} at ${ev.home}`;
     case 'period_start': return `Start of ${periodName(ev.period)}`;
     case 'period_end': return `End of ${periodName(ev.period)}`;
+    case 'coin_flip': return `${T(ev.team)} wins the coin flip and takes the ball first`;
     case 'jump_ball': return `Jump ball: ${n(ev.home)} vs ${n(ev.away)}, ${T(ev.team)} gains possession`;
     case 'shot': {
       let kind = SHOT_NAME[ev.shot];
@@ -2003,7 +2082,13 @@ export const SEAT_KEYS = ['home', 'home2', 'home3', 'away', 'away2', 'away3'];
 export const MODES = {
   '2v2': { roles: { home: [0, 4], home2: [1, 2, 3], away: [0, 4], away2: [1, 2, 3] }, names: { home: 'PG + C', home2: 'SG + SF + PF', away: 'PG + C', away2: 'SG + SF + PF' } },
   '3v3': { roles: { home: [0, 1], home2: [2], home3: [3, 4], away: [0, 1], away2: [2], away3: [3, 4] }, names: { home: 'PG + SG', home2: 'SF', home3: 'PF + C', away: 'PG + SG', away2: 'SF', away3: 'PF + C' } },
+  // StreetBall 3on3: three players a side, one person each (the guard plays role 0, the wing 2, the big 4)
+  street: { street: true, roles: { home: [0], home2: [2], home3: [4], away: [0], away2: [2], away3: [4] }, names: { home: 'Guard', home2: 'Wing', home3: 'Big', away: 'Guard', away2: 'Wing', away3: 'Big' } },
 };
+/** StreetBall: the three players a side take these roles (so they space like a PG, a wing and a big). */
+const STREET_ROLES = [0, 2, 4];
+/** StreetBall check ball: how long everybody stands set before the ball is live. */
+export const CHECK_SECS = 1.2;
 export const SEAT_ROLES = MODES['2v2'].roles;
 export const sideOfKey = (k) => (k.startsWith('home') ? 'home' : 'away');
 const hasDir = (i) => !!i && (Math.abs(i.mx) > 0.01 || Math.abs(i.my) > 0.01);
@@ -2056,6 +2141,9 @@ export class LiveGame {
    * with different `user` values run the exact same game.
    */
   constructor(data, { user = 'home', difficulty = 'pro', ...opts } = {}) {
+    // StreetBall (rules.street): no coaches, so no auto subs or timeouts
+    this.street = !!opts.rules?.street;
+    if (this.street) opts = { ...opts, autoSubs: { home: false, away: false } };
     this.game = new Game(data, opts);
     this.game.deferred = true;  // free throws and rebounds are played out here, one step at a time
     this.data = this.game.data;
@@ -2110,7 +2198,9 @@ export class LiveGame {
     this.all = [...this.ents.home, ...this.ents.away];
     this.sync();
     this.dispClock = this.game.state.clock;
-    this.startTip();
+    this.checkN = 0;           // StreetBall: counts check balls (the camera cuts to the new half on each)
+    if (this.street) { this.startCheck(this.state.possession); this.phaseT = 99; }   // opening check: start in place
+    else this.startTip();
     this.pump();
   }
 
@@ -2148,7 +2238,8 @@ export class LiveGame {
     return list.length ? list.reduce((a, c) => (distE(a, to) <= distE(c, to) ? a : c)) : null;
   }
   p(id) { return this.data.byId[id]; }
-  dirRight(side) { return (side === 'home') === (this.state.period <= this.game.rules.periods / 2); }
+  // StreetBall: both teams play at the same basket (the right one); the camera turns to show whose ball it is.
+  dirRight(side) { return this.street ? true : (side === 'home') === (this.state.period <= this.game.rules.periods / 2); }
   hoopOf(side) { return hoopPos(this.dirRight(side)); }
   N(side, nx, ny) { return this.dirRight(side) ? { x: nx, y: ny } : { x: COURT.L - nx, y: COURT.W - ny }; }
   isFront(side, x, margin = 0) { return this.dirRight(side) ? x > 47 + margin : x < 47 - margin; }
@@ -2171,7 +2262,7 @@ export class LiveGame {
     for (const side of ['home', 'away']) {
       [...this.ents[side]]
         .sort((a, b) => POS_ORDER[this.p(a.id).pos] - POS_ORDER[this.p(b.id).pos] || a.slot - b.slot)
-        .forEach((e, r) => { e.role = r; });
+        .forEach((e, r) => { e.role = this.street ? STREET_ROLES[r] ?? r : r; });
     }
     // 2v2: a sub can reshuffle positions; nobody keeps a player who is no longer theirs
     for (const k of this.ctls) { const U = this.uc[k]; if (U.ctrl && !this.owns(k, U.ctrl)) U.ctrl = this.nearestOwn(k, this.ball); }
@@ -2350,6 +2441,8 @@ export class LiveGame {
       case 'anim': this.updateAnim(dt, I); break;
       case 'inbound': this.updateInbound(dt); break;
       case 'break': this.updateBreak(dt); break;
+      case 'check': this.updateCheck(dt); break;
+      case 'clear': this.updateClear(dt); break;
       default: for (const e of this.all) this.hold(e);
     }
     for (const k of this.ctls) this.uc[k].shootHeld = !!I[k].shoot;
@@ -2374,7 +2467,8 @@ export class LiveGame {
     }
     // Bodies: opponents block each other (the defender holds his ground better), teammates brush past.
     const MIN = 2.4;
-    for (let i = 0; i < all.length; i++) {
+    // StreetBall reset walk: nobody blocks anybody on the way back to their places
+    if (this.phase !== 'clear') for (let i = 0; i < all.length; i++) {
       for (let j = i + 1; j < all.length; j++) {
         const a = all[i], b = all[j];
         if (a.oob || b.oob) continue;
@@ -2396,6 +2490,10 @@ export class LiveGame {
       const m = e.oob || (e === this.ball.holder && this.isCtrl(e)) ? -3 : 0.6;
       e.x = clamp(e.x, m, COURT.L - m);
       e.y = clamp(e.y, m, COURT.W - m);
+      // StreetBall: everybody stays in the half the ball is played in (only the ball handler can step over)
+      if (this.street && m > 0) {
+        e.x = this.dirRight(this.courtSide) ? Math.max(e.x, COURT.L / 2 + 0.6) : Math.min(e.x, COURT.L / 2 - 0.6);
+      }
     }
   }
 
@@ -2498,7 +2596,7 @@ export class LiveGame {
         return this.engine(() => g.turnover(offSide, holder?.id ?? null, 'eight_second'));
       }
     } else if (holder && !this.isFront(offSide, holder.x, -1.5)) {
-      return this.engine(() => g.turnover(offSide, holder.id, 'backcourt'));
+      return this.engine(() => g.turnover(offSide, holder.id, this.street ? 'out_of_bounds' : 'backcourt'));
     }
 
     // Intents for everyone.
@@ -2513,6 +2611,13 @@ export class LiveGame {
         if (e === holder) {
           if (this.windup) { this.hold(e); continue; }
           const o = AI.handlerThink(this, e, dt);
+          if (this.mustClear) {
+            // StreetBall, after a defensive rebound: take it out past the arc first (or pass it to someone out there)
+            const t = this.clearPoint(e);
+            this.steer(e, t.x, t.y, false, 1.5);
+            if (o.pass && this.isCleared(o.pass)) act = { k: 'pass', e, to: o.pass };
+            continue;
+          }
           this.steer(e, o.tx, o.ty, o.sprint);
           if (o.shoot) act = { k: 'shoot', e };
           else if (o.pass) act = { k: 'pass', e, to: o.pass };
@@ -2528,6 +2633,11 @@ export class LiveGame {
           if (this.rng.chance(rate * dt)) act = { k: 'steal', e };
         }
       }
+    }
+
+    if (this.mustClear && b.holder && b.holder.side === offSide && this.isCleared(b.holder)) {
+      this.mustClear = false;
+      this.fxText('Cleared', b.holder.x, b.holder.y - 3.5, '#8fe3ff');
     }
 
     // CPU shot wind-up (gives the defense a beat to contest).
@@ -2849,7 +2959,7 @@ export class LiveGame {
       this.resume();
       return true;
     }
-    if (r < ps + (this.isCtrl(d) ? 0.13 : 0.07)) {
+    if (!this.street && r < ps + (this.isCtrl(d) ? 0.13 : 0.07)) {
       const front = this.isFront(h.side, h.x);
       this.engine(() => g.defensiveFoul(d.id, h.id, front));
       return true;
@@ -3255,6 +3365,11 @@ export class LiveGame {
 
   shoot(e, timingMod = 0, perfect = false, extra = null, shotResult = null) {
     const g = this.game, side = e.side;
+    if (this.street && this.mustClear && side === this.state.possession) {
+      // StreetBall: a shot before the ball was cleared does not count; the other team checks it up
+      this.fxText("Didn't clear it", e.x, e.y - 3.5, '#ff6b5a');
+      return this.engine(() => g.turnover(side, e.id, 'not_cleared'));
+    }
     const hoop = this.hoopOf(side);
     const zone = shotZone(e.x, e.y, hoop);
     const nd = this.nearestDef(e);
@@ -3283,7 +3398,7 @@ export class LiveGame {
     g.resolveShot({
       offSide: side, shooter: e.id, type: zone.type, defender: contested ? nd.e.id : null,
       exact: true, assist, fastBreak, heave: zone.dist > 42, difficultyMod: mod,
-      forceFoul: contested ? undefined : false, foulScale: this.foulScale(e, zone, c),
+      forceFoul: contested && !this.street ? undefined : false, foulScale: this.foulScale(e, zone, c),
       makeProb, forceMade,
       makeScale: shotResult?.makeProb != null ? 1 : makeScale,
     });
@@ -3467,7 +3582,7 @@ export class LiveGame {
         if (ev.made) {
           const pts = st.k === 'ft' ? 1 : ev.pts;
           this.fxText(`+${pts}`, st.hoop.x, st.hoop.y - 2, '#fff');
-          if (st.k === 'shot') this.say(`${this.name(ev.player)} ${st.oop ? 'finishes the alley-oop!' : ev.shot === 'three' ? 'for three!' : ev.and1 ? 'and one!' : 'scores'}`, 1.4);
+          if (st.k === 'shot') this.say(`${this.name(ev.player)} ${st.oop ? 'finishes the alley-oop!' : ev.shot === 'three' ? (this.street ? 'from deep, for two!' : 'for three!') : ev.and1 ? 'and one!' : 'scores'}`, 1.4);
         }
       }
     } else if (st.k === 'reb') {
@@ -3608,6 +3723,22 @@ export class LiveGame {
     if (s.pending) this.flushPending();
     this.sync(); this.pump();
     this.ftLine = null; this.queue = []; this.ftMeter = null;
+    if (this.street) {
+      if (s.over) return this.finish();
+      // StreetBall: an offensive rebound plays on; every other change (make, stop, steal, defensive
+      // rebound, ball out) is a check ball at the top of the key, in the half of the team with the ball.
+      const h = s.next.kind === 'oreb' ? this.entOf(s.next.rebounder) : null;
+      if (h && h.side === s.possession) return this.goLive(h, 'oreb');
+      // Every other change (make, steal, block, defensive rebound, ball out): the team that gets the ball
+      // takes it back out to the top of the arc (the rebounder or stealer carries it), both teams reset,
+      // and the ball is checked up there. The camera swivels while they walk.
+      let carrier = null;
+      if (s.next.kind === 'steal') carrier = this.entOf(s.next.stealer);
+      else if (s.next.kind === 'defreb') {
+        for (let i = this.game.events.length - 1; i >= 0; i--) { const ev = this.game.events[i]; if (ev.type === 'rebound') { carrier = ev.player ? this.entOf(ev.player) : null; break; } }
+      }
+      return this.startCheck(s.possession, carrier?.side === s.possession ? carrier : null);
+    }
     if (s.clock <= 0) return this.startBreak();
     const side = s.possession, k = s.next.kind;
     let holder = null;
@@ -3639,6 +3770,7 @@ export class LiveGame {
 
   /** Queue a manual substitution for a human team (made at the next dead ball). Turns auto subs off. */
   requestSub(outId, inId, k = this.me) {
+    if (this.street) return false;     // StreetBall: no subs
     const U = this.uc[k];
     if (!U || !this.ctls.includes(k)) return false;
     U.pendingSubs = U.pendingSubs.filter((w) => w.out !== outId && w.in !== inId);
@@ -3718,6 +3850,108 @@ export class LiveGame {
         this.goLive(I.recv, 'inbound');
       }
     }
+  }
+
+  // ------------------------------------------------------------------ StreetBall check ball
+
+  /**
+   * StreetBall restart: the team with the ball sets up in its half (the guard with the ball just behind
+   * the top of the arc, the others on their spots, each defender between his man and the rim), stands
+   * set for a moment, and the ball is live. Players are placed, not walked: the camera cuts to this half.
+   */
+  startCheck(side, carrier = null) {
+    const b = this.ball;
+    this.phase = 'clear'; this.phaseT = 0; this.checkN += 1;
+    this.courtSide = side;     // whose half the ball is played in until the next check
+    this.viewSide = side;      // whose offense the camera shows (turns on every change of possession)
+    this.mustClear = false;    // defensive rebound: the ball has to go past the arc before a basket counts
+    this.meter = null; this.windup = null; this.queue = []; this.ftLine = null; this.inb = null; this.passTarget = null;
+    this.ftMeter = null; this.double = null; this.rebCtx = null; this.lastPass = null;
+    b.flight = null;
+    // the ball goes to whoever got it (rebound, steal), else the team's guard; he carries it to the top
+    const holder = carrier ?? this.ents[side].find((e) => e.role === 0) ?? this.ents[side][0];
+    const hoop = this.hoopOf(side);
+    for (const e of this.all) {
+      e.spot = null; e.cut = 0; e.screen = 0; e.roll = false; e.oob = false; e.stun = 0;
+      e.handsUp = false; e.pivot = false; e.dribbled = false; e.faked = 0;
+    }
+    // where everybody walks to: the ball at the top of the arc, his teammates on their spots,
+    // each defender between his man and the rim (the one on the ball right up on him)
+    const spots = new Map();
+    const slots = this.ents[side].filter((e) => e !== holder);
+    const used = new Set();
+    for (const e of slots) {
+      let k = AI.defaultSpot(this, e);
+      if (k === 'top' || used.has(k)) k = ['wingA', 'wingB', 'cornerA', 'cornerB', 'lowA'].find((x) => !used.has(x));
+      used.add(k); e.spot = k;
+      spots.set(e, this.N(side, ...AI.SPOTS[k]));
+    }
+    spots.set(holder, this.N(side, 61.5, 25));
+    for (const e of this.ents[other(side)]) {
+      const m = this.ents[side].find((o) => o.role === e.role) ?? holder;
+      const man = spots.get(m) ?? spots.get(holder);
+      const k = m === holder ? 0.12 : 0.3;
+      spots.set(e, { x: lerp(man.x, hoop.x, k), y: lerp(man.y, hoop.y, k) });
+    }
+    this.chk = { spots, holder, side };
+    b.holder = holder; b.x = holder.x; b.y = holder.y; b.z = 4;
+    this.assignAll(holder);
+    this.say(`${this.state.teams[side].id} ball: take it back`, 1.6);
+  }
+
+  /** StreetBall: everybody walks back to their places (inputs wait); then the ball is checked up. */
+  updateClear(dt) {
+    this.phaseT += dt;
+    const C = this.chk;
+    let ready = true;
+    for (const [e, p] of C.spots) {
+      const d = distE(e, p);
+      if (d > 1.0) ready = false;
+      this.steer(e, p.x, p.y, d > 10, 1.2);
+    }
+    if ((ready && this.phaseT > 1.1) || this.phaseT > 5) {
+      const hoop = this.hoopOf(C.side);
+      for (const [e, p] of C.spots) {
+        e.x = p.x; e.y = p.y; e.vx = e.vy = e.dvx = e.dvy = 0;
+        const m = e.side === C.side ? hoop : C.holder;
+        e.fx = Math.sign(m.x - e.x) || 1; e.fy = 0;
+        e.trkx = e.x; e.trky = e.y;
+      }
+      this.phase = 'check'; this.phaseT = 0;
+      this.say(`Check ball: ${this.state.teams[C.side].id}`, CHECK_SECS);
+    }
+  }
+
+  /** StreetBall: is this player behind the arc (where a cleared ball has to get to)? */
+  isCleared(e) { return shotZone(e.x, e.y, this.hoopOf(e.side)).type === 'three'; }
+
+  /** Where a CPU ball handler dribbles to clear the ball: straight out past the arc (to a wing near the baseline). */
+  clearPoint(e) {
+    const h = this.hoopOf(e.side);
+    if (Math.abs(e.x - h.x) < 10) return { x: h.x - 26, y: e.y < h.y ? 12 : 38 };
+    const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy) || 1;
+    return { x: clamp(h.x + dx / d * 26.5, 48.5, 92), y: clamp(h.y + dy / d * 26.5, 4, 46) };
+  }
+
+  updateCheck(dt) {
+    this.phaseT += dt;
+    for (const e of this.all) this.hold(e);
+    if (this.phaseT >= CHECK_SECS) {
+      const holder = this.ball.holder ?? this.ents[this.state.possession][0];
+      this.lastPass = null;
+      this.goLive(holder, 'check');
+      this.crossed = true;
+    }
+  }
+
+  /** StreetBall: somebody reached the target. */
+  finish() {
+    this.phase = 'final'; this.phaseT = 0;
+    this.meter = null; this.windup = null; this.queue = []; this.passTarget = null;
+    this.ball.flight = null; this.ball.holder = null;
+    const s = this.state;
+    this.say(`${s.teams[s.winner].id} wins ${s.score[s.winner]}-${s.score[other(s.winner)]}`, 1e9);
+    this.pump();
   }
 
   // ------------------------------------------------------------------ period breaks
@@ -3912,6 +4146,7 @@ export class Keyboard {
     this.down = new Set();
     this.edges = { pass: false, swap: false, steal: false, timeout: false, pick: false, move: false, spin: false };
     this.onPause = null;
+    this.turned = null;        // () => true while the StreetBall camera is turned round (directions follow the screen)
     this._kd = (e) => {
       if (e.target instanceof HTMLElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
       if (BLOCK.has(e.code)) e.preventDefault();
@@ -3934,8 +4169,9 @@ export class Keyboard {
       const m = MOVE[code];
       if (m) { mx += m[0]; my += m[1]; }
     }
+    if (this.turned?.()) { mx = -mx; my = -my; }
     return {
-      mx: Math.sign(mx), my: Math.sign(my),
+      mx: Math.sign(mx) || 0, my: Math.sign(my) || 0,
       sprint: this.down.has('ShiftLeft') || this.down.has('ShiftRight'),
       shoot: this.down.has('Space'),
       pass: this.edges.pass, swap: this.edges.swap, steal: this.edges.steal, timeout: this.edges.timeout, pick: this.edges.pick, move: this.edges.move, spin: this.edges.spin,
@@ -4334,7 +4570,21 @@ export const K_FAR = 0.94;
 export const depthK = (y) => K_FAR + (1 - K_FAR) * (y / 50);
 
 export class Camera {
-  constructor() { this.x = 47; this.tx = 47; this.zoom = 1; this.view = 1; this.vx = 0; }
+  constructor() { this.x = 47; this.tx = 47; this.zoom = 1; this.view = 1; this.vx = 0; this.rot = 0; this.rcx = 70.5; this.rcy = 25; }
+
+  /**
+   * StreetBall swivel: the camera turns `rot` radians around the middle of the half court (rcx, rcy).
+   * Turning the camera = turning the world the other way, so world feet are rotated before projecting.
+   * rot 0 (every other mode) leaves every point exactly as it was.
+   */
+  rw(x, y) {
+    if (!this.rot) return [x, y];
+    const c = Math.cos(this.rot), s = Math.sin(this.rot), dx = x - this.rcx, dy = y - this.rcy;
+    return [this.rcx + c * dx - s * dy, this.rcy + s * dx + c * dy];
+  }
+
+  /** Screen row of a floor point. */
+  fy(x, y) { return this.project(x, y, 0)[1]; }
 
   /** World feet visible on each side of the centre at the near sideline. */
   get half() { return SW / 2 / (PXFT * this.zoom * this.view); }   // view = whole-picture zoom (see Broadcast.present)
@@ -4352,11 +4602,12 @@ export class Camera {
 
   /** Feet -> screen pixels (fractional; callers round). */
   project(x, y, z = 0) {
+    if (this.rot) [x, y] = this.rw(x, y);
     const k = depthK(y) * PXFT * this.zoom;
     return [SW / 2 + (x - this.x) * k, FAR_Y + y * ROW - z * ZPX];
   }
 
-  sx(x, y) { return SW / 2 + (x - this.x) * depthK(y) * PXFT * this.zoom; }
+  sx(x, y) { if (this.rot) [x, y] = this.rw(x, y); return SW / 2 + (x - this.x) * depthK(y) * PXFT * this.zoom; }
   sy(y, z = 0) { return FAR_Y + y * ROW - z * ZPX; }
 }
 </script>
@@ -4748,6 +4999,264 @@ export class Arena {
         }
       }
       // front half of the rim
+      R(cx - 6, cy + 1, 13, 1, '#ff7a33'); R(cx - 7, cy, 1, 1, '#ff7a33'); R(cx + 7, cy, 1, 1, '#ff7a33');
+      R(cx - 5, cy + 2, 11, 1, '#b8421f');
+    }
+    return { cx, cy };
+  }
+}
+</script>
+<script type="text/plain" data-mod="render/street.js">// StreetBall 3on3 arena: an outdoor blacktop court (worn asphalt, painted lines, cracks), a city
+// skyline and a chain-link fence with a few people watching behind it, and park hoops with chain
+// nets and no shot clock. Same geometry and drawing path as the arena (it only swaps the art), so
+// the camera, sprites and sorting work exactly as in the other modes. All procedural.
+import { SW, SH, PXFT, ROW, ZPX, FAR_Y, depthK } from '@@render/view.js@@';
+import { Arena, X0, X1, Y0, Y1, BACK_K } from '@@render/arena.js@@';
+import { text, textWidth } from '@@render/font.js@@';
+
+const TW = Math.round((X1 - X0) * PXFT), TH = Math.round((Y1 - Y0) * ROW);
+const BASE_ROW = Math.round(FAR_Y + Y0 * ROW);
+const BW = Math.round((X1 - X0) * PXFT * BACK_K), BH = BASE_ROW;
+
+const mk = (w, h) => (typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h }));
+const css = (c, k = 1) => `rgb(${Math.round(c[0] * k)},${Math.round(c[1] * k)},${Math.round(c[2] * k)})`;
+const mix = (a, b, u) => [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u];
+function rand(seed) { let s = seed >>> 0; return () => { s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+export class StreetArena extends Arena {
+  constructor(...args) {
+    super(...args);
+    // the court seen from the other side (camera turned 180 degrees), pre-warped like the normal one
+    this.warp0 = this.warp;
+    this.courtPi = this.turned(Math.PI);
+    this.warpPi = mk(this.warpW, TH);
+    const wc = this.warpPi.getContext('2d'); wc.imageSmoothingEnabled = false;
+    for (let r = 0; r < TH; r++) wc.drawImage(this.courtPi, 0, r, TW, 1, 0, r, Math.round(TW * this.rowK[r]), 1);
+    this.spinTex = null;
+  }
+
+  /** The flat court texture turned by `rot` round the middle of the half court (same turn as Camera.rw). */
+  turned(rot, out = null) {
+    const cv = out ?? mk(TW, TH), c = cv.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.imageSmoothingEnabled = false;
+    c.fillStyle = '#6b6a66'; c.fillRect(0, 0, TW, TH);
+    // texture pixels -> feet -> turn -> feet -> texture pixels (feet are not square in texture pixels)
+    c.scale(PXFT, ROW); c.translate(-X0, -Y0);
+    c.translate(70.5, 25); c.rotate(rot); c.translate(-70.5, -25);
+    c.translate(X0, Y0); c.scale(1 / PXFT, 1 / ROW);
+    c.drawImage(this.court, 0, 0);
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    return cv;
+  }
+
+  drawCourt(ctx, cam) {
+    const rot = cam.rot ?? 0, sn = Math.sin(rot), cs = Math.cos(rot);
+    if (Math.abs(sn) < 1e-4) {
+      // resting (basket on the right, or turned round): the fast pre-warped path
+      this.warp = cs > 0 ? this.warp0 : this.warpPi;
+      return super.drawCourt(ctx, { x: cam.x, zoom: 1 });
+    }
+    // mid-swivel: turn the texture this frame, then draw it row by row in perspective
+    this.spinTex = this.turned(rot, this.spinTex);
+    for (let r = 0; r < TH; r++) {
+      const sy = BASE_ROW + r;
+      if (sy >= SH) break;
+      const k = depthK(Y0 + (r + 0.5) / ROW);
+      const sw = SW / k, sx = (cam.x - X0) * PXFT - sw / 2;
+      ctx.drawImage(this.spinTex, sx, r, sw, 1, 0, sy, SW, 1);
+    }
+  }
+
+  /** The skyline slides past as the camera swivels (tiled, so it never runs out). */
+  drawBackdrop(ctx, cam, frame) {
+    const img = this.back[frame ? 1 : 0];
+    let sx = Math.round((cam.x - X0) * PXFT * BACK_K * cam.zoom - SW / 2 + ((cam.rot ?? 0) / Math.PI) * BW * 0.55);
+    sx = ((sx % BW) + BW) % BW;
+    const w1 = Math.min(SW, BW - sx);
+    ctx.drawImage(img, sx, 0, w1, BH, 0, 0, w1, BH);
+    if (w1 < SW) ctx.drawImage(img, 0, 0, SW - w1, BH, w1, 0, SW - w1, BH);
+  }
+
+  // ------------------------------------------------------------------ blacktop
+  buildCourt() {
+    const cv = mk(TW, TH), c = cv.getContext('2d');
+    const px = (x) => Math.round((x - X0) * PXFT), py = (y) => Math.round((y - Y0) * ROW);
+    const R = rand(23);
+    // concrete around the court, asphalt on it
+    c.fillStyle = '#6b6a66'; c.fillRect(0, 0, TW, TH);
+    for (let i = 0; i < TW * TH / 10; i++) { c.fillStyle = R() < 0.5 ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.08)'; c.fillRect(Math.floor(R() * TW), Math.floor(R() * TH), 1, 1); }
+    for (let x = px(-12); x < TW; x += 64) { c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(x, 0, 1, TH); }   // slab joints
+    const xA = px(-2), xB = px(96), yA = py(-2), yB = py(52);
+    c.fillStyle = '#34373c'; c.fillRect(xA, yA, xB - xA, yB - yA);
+    // asphalt grain: speckles of stone, darker patches, a few faded tar seams
+    for (let i = 0; i < (xB - xA) * (yB - yA) / 3; i++) {
+      const v = R();
+      c.fillStyle = v < 0.35 ? 'rgba(255,255,255,.07)' : v < 0.7 ? 'rgba(0,0,0,.12)' : v < 0.74 ? 'rgba(200,190,170,.16)' : 'rgba(0,0,0,0)';
+      c.fillRect(xA + Math.floor(R() * (xB - xA)), yA + Math.floor(R() * (yB - yA)), 1, 1);
+    }
+    for (let i = 0; i < 14; i++) {
+      const cx = xA + R() * (xB - xA), cy = yA + R() * (yB - yA), rw = 20 + R() * 60, rh = 4 + R() * 10;
+      c.fillStyle = R() < 0.5 ? 'rgba(0,0,0,.10)' : 'rgba(255,255,255,.03)';
+      for (let y = -rh; y <= rh; y++) { const w = rw * Math.sqrt(1 - (y / rh) ** 2); c.fillRect(Math.round(cx - w), Math.round(cy + y), Math.round(w * 2), 1); }
+    }
+    // sun from the far side: a touch brighter far, darker near
+    for (let r = yA; r < yB; r++) { const v = (r - yA) / (yB - yA); c.fillStyle = `rgba(${v < 0.5 ? '255,220,170' : '0,0,0'},${v < 0.5 ? (0.5 - v) * 0.08 : (v - 0.5) * 0.12})`; c.fillRect(xA, r, xB - xA, 1); }
+
+    const line = '#e9e6dc';
+    // worn paint: a few pixels missing here and there
+    const plot = (x, y, col = line, w = 2) => { if (R() < 0.06) return; c.fillStyle = col; c.fillRect(px(x) - (w >> 1), py(y), w, 1); };
+    const hline = (xa, xb, y, col = line) => { for (let x = px(xa); x < px(xb); x++) if (R() > 0.05) { c.fillStyle = col; c.fillRect(x, py(y), 1, 1); } };
+    const vline = (x, ya, yb, col = line, w = 2) => { for (let y = py(ya); y <= py(yb); y++) if (R() > 0.05) { c.fillStyle = col; c.fillRect(px(x) - (w >> 1), y, w, 1); } };
+    const key = mix([52, 55, 60], this.c1, 0.55);
+    // centre circle with a stencil
+    // no lettering on the ground: the camera turns round, and it would read upside down
+    for (let i = 0; i <= 300; i++) { const a = (i / 300) * Math.PI * 2; plot(47 + Math.cos(a) * 6, 25 + Math.sin(a) * 6); }
+    vline(47, 0, 50);
+    for (const right of [false, true]) {
+      const X = (d) => (right ? 94 - d : d), s = right ? -1 : 1;
+      const a = px(Math.min(X(0), X(19))), b = px(Math.max(X(0), X(19)));
+      c.fillStyle = css(key); c.fillRect(a, py(17), b - a, py(33) - py(17));
+      for (let i = 0; i < (b - a) * (py(33) - py(17)) / 4; i++) { c.fillStyle = R() < 0.5 ? 'rgba(0,0,0,.16)' : 'rgba(255,255,255,.05)'; c.fillRect(a + Math.floor(R() * (b - a)), py(17) + Math.floor(R() * (py(33) - py(17))), 1, 1); }
+      hline(Math.min(X(0), X(19)), Math.max(X(0), X(19)), 17); hline(Math.min(X(0), X(19)), Math.max(X(0), X(19)), 33);
+      vline(X(19), 17, 33);
+      for (let i = 0; i <= 120; i++) { const t = -Math.PI / 2 + Math.PI * (i / 120); plot(X(19) + s * Math.cos(t) * 6, 25 + Math.sin(t) * 6); }
+      const hx = X(5.25);
+      hline(Math.min(X(0), X(14)), Math.max(X(0), X(14)), 3); hline(Math.min(X(0), X(14)), Math.max(X(0), X(14)), 47);
+      const a0 = Math.asin(22 / 23.75);
+      for (let i = 0; i <= 400; i++) { const t = -a0 + (2 * a0) * (i / 400); plot(hx + s * Math.cos(t) * 23.75, 25 + Math.sin(t) * 23.75); }
+    }
+    c.fillStyle = line;
+    c.fillRect(px(0) - 1, py(0) - 1, px(94) - px(0) + 2, 2); c.fillRect(px(0) - 1, py(50), px(94) - px(0) + 2, 2);
+    vline(0, 0, 50); vline(94, 0, 50);
+    // cracks
+    for (let i = 0; i < 16; i++) {
+      let x = xA + R() * (xB - xA), y = yA + R() * (yB - yA);
+      const n = 10 + Math.floor(R() * 30);
+      let dx = R() < 0.5 ? 1 : -1;
+      for (let j = 0; j < n; j++) {
+        c.fillStyle = 'rgba(12,12,14,.55)'; c.fillRect(Math.round(x), Math.round(y), 1, 1);
+        x += dx * (0.6 + R()); y += R() < 0.5 ? (R() < 0.5 ? 1 : -1) : 0;
+        if (R() < 0.08) dx = -dx;
+      }
+    }
+    return cv;
+  }
+
+  // ------------------------------------------------------------------ city, fence, people watching
+  buildBackdrop(frame) {
+    const cv = mk(BW, BH), c = cv.getContext('2d');
+    const R = rand(91);
+    // evening sky
+    const sky = [[48, 70, 120], [118, 102, 150], [236, 150, 98], [250, 196, 120]];
+    for (let r = 0; r < BH; r++) {
+      const u = Math.min(1, r / 130) * (sky.length - 1), i = Math.min(sky.length - 2, Math.floor(u));
+      c.fillStyle = css(mix(sky[i], sky[i + 1], u - i)); c.fillRect(0, r, BW, 1);
+    }
+    // two rows of buildings, far (hazy) then near (dark), with lit windows
+    for (const [base, k, haze] of [[126, 0.5, 0.45], [146, 1, 0]]) {
+      let x = -10;
+      while (x < BW) {
+        const w = 26 + Math.floor(R() * 46), h = (k < 1 ? 40 : 30) + Math.floor(R() * (k < 1 ? 50 : 44));
+        const col = mix([28, 26, 40], sky[2], haze);
+        c.fillStyle = css(col); c.fillRect(x, base - h, w, h + 30);
+        if (R() < 0.3) { c.fillStyle = css(col, 0.85); c.fillRect(x + 4, base - h - 6, 6, 6); }       // roof box
+        for (let wy = base - h + 5; wy < base - 2; wy += 6) for (let wx = x + 3; wx < x + w - 3; wx += 5) {
+          if (R() < 0.38) { c.fillStyle = R() < 0.7 ? `rgba(255,214,120,${k < 1 ? 0.35 : 0.75})` : `rgba(160,200,255,${k < 1 ? 0.3 : 0.6})`; c.fillRect(wx, wy, 2, 3); }
+        }
+        x += w + Math.floor(R() * 6);
+      }
+    }
+    // brick wall with a mural, behind the fence on part of the lot
+    const wallTop = 128;
+    for (const [a, b] of [[60, 330], [620, 900]]) {
+      c.fillStyle = '#6e3a2c'; c.fillRect(a, wallTop, b - a, BH - wallTop);
+      for (let y = wallTop; y < BH; y += 4) {
+        c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(a, y, b - a, 1);
+        for (let x = a + ((y / 4) % 2 ? 4 : 0); x < b; x += 8) c.fillRect(x, y, 1, 4);
+      }
+      const t = a < 400 ? 'MINI2K' : 'HOOPS', w = textWidth(t, 'big', 2);
+      text(c, t, ((a + b) >> 1) - (w >> 1), wallTop + 8, { scale: 2, color: a < 400 ? '#f3d35a' : '#5ac8ff', shadow: '#1a0d0a' });
+    }
+    // people watching (two frames: some throw their arms up)
+    const skins = ['#e8c09a', '#c98d5e', '#8a5a34', '#5e3a20', '#f0d0b0'];
+    const shirts = [css(this.c1), css(this.c2), '#d8d8d8', '#2f5a8a', '#8a2f3a', '#c9a23c', '#3b3f4d', '#4c7a4a', '#e06a2a'];
+    for (let x = 8; x < BW; x += 9 + Math.floor(R() * 16)) {
+      if (R() < 0.35) { x += 30; continue; }
+      const h = 15 + Math.floor(R() * 5), y = BH - 6 - h, up = frame === 1 && R() < 0.5, sk = skins[Math.floor(R() * skins.length)];
+      c.fillStyle = '#1c1d24'; c.fillRect(x + 1, y + 10, 2, h - 10); c.fillRect(x + 4, y + 10, 2, h - 10);   // legs
+      c.fillStyle = shirts[Math.floor(R() * shirts.length)]; c.fillRect(x, y + 3, 7, 8);
+      c.fillStyle = sk; c.fillRect(x + 2, y - 1, 3, 4);
+      if (R() < 0.5) { c.fillStyle = '#16141a'; c.fillRect(x + 2, y - 2, 3, 1); }
+      c.fillStyle = sk;
+      if (up) { c.fillRect(x - 1, y - 3, 1, 6); c.fillRect(x + 7, y - 3, 1, 6); } else { c.fillRect(x - 1, y + 4, 1, 5); c.fillRect(x + 7, y + 4, 1, 5); }
+    }
+    // sidewalk
+    c.fillStyle = '#8a8780'; c.fillRect(0, BH - 6, BW, 6);
+    c.fillStyle = '#9c9990'; c.fillRect(0, BH - 6, BW, 1);
+    // chain-link fence: posts, rails, diamond mesh
+    const fTop = 108;
+    c.fillStyle = 'rgba(190,196,204,.30)';
+    for (let x = -BH; x < BW + BH; x += 6) {
+      for (let y = fTop; y < BH - 4; y++) { const d = y - fTop; c.fillRect(x + d, y, 1, 1); c.fillRect(x - d, y, 1, 1); }
+    }
+    c.fillStyle = '#7d838c'; c.fillRect(0, fTop - 1, BW, 2);
+    c.fillStyle = '#a7adb6'; c.fillRect(0, fTop - 1, BW, 1);
+    for (let x = 20; x < BW; x += 96) { c.fillStyle = '#5e646d'; c.fillRect(x, fTop - 4, 3, BH - fTop + 2); c.fillStyle = '#9aa0a9'; c.fillRect(x, fTop - 4, 1, BH - fTop + 2); }
+    // streetlights
+    for (const x of [180, 560, 940]) {
+      c.fillStyle = '#2b2d33'; c.fillRect(x, 70, 2, fTop - 70);
+      c.fillRect(x, 70, 10, 2); c.fillStyle = '#ffe9a8'; c.fillRect(x + 7, 72, 4, 2);
+      c.fillStyle = 'rgba(255,233,168,.08)'; c.fillRect(x - 6, 74, 26, 30);
+    }
+    return cv;
+  }
+
+  buildForeground() {
+    // the near curb of the lot
+    const w = SW + 240, h = 24, cv = mk(w, h), c = cv.getContext('2d');
+    c.fillStyle = '#5d5c58'; c.fillRect(0, h - 10, w, 10);
+    c.fillStyle = '#7a7872'; c.fillRect(0, h - 10, w, 1);
+    for (let x = 0; x < w; x += 26) { c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(x, h - 9, 1, 9); }
+    return cv;
+  }
+
+  /** A park hoop: metal pole, painted steel backboard, chain net, no shot clock. */
+  drawHoop(ctx, cam, right, { net = 0, shake = 0, part = 'all' } = {}) {
+    // which way the board faces on screen (the camera may be turned round)
+    const vis = Math.cos(cam.rot ?? 0) < 0 ? !right : right, s = vis ? -1 : 1;
+    const [fx, fy] = cam.project(right ? 88.75 : 5.25, 25, 0);
+    const cx = Math.round(fx), cy = Math.round(fy - 10 * ZPX) + shake;
+    const bx = cx - s * 11;
+    const R = (x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(w < 0 ? x + w : x, y, Math.abs(w), h); };
+    if (part === 'all' || part === 'back') {
+      const [px0, py0] = cam.project(right ? 96.5 : -2.5, 25, 0);
+      const pxr = Math.round(px0), pyr = Math.round(py0);
+      R(pxr - 4, pyr - 2, 8, 3, '#3a3b40');
+      R(pxr - 2, pyr - 66, 4, 64, '#4a5058'); R(pxr - 2, pyr - 66, 1, 64, '#7d858f');
+      const n = Math.abs(bx - s * 3 - pxr);
+      for (let i = 0; i <= n; i++) {
+        const u = i / (n || 1), x = Math.round(pxr + (bx - s * 3 - pxr) * u), y = Math.round(pyr - 66 + (cy - 12 - (pyr - 66)) * u);
+        R(x, y, 2, 3, '#4a5058');
+      }
+      for (let i = 0; i < 6; i++) {
+        const x = bx - s * i, top = cy - 30 + i;
+        R(x, top - 1, 1, 30, '#2a2c30');
+        if (i > 0 && i < 5) R(x, top, 1, 28, i < 3 ? '#e6e3da' : '#c9c5ba');
+      }
+      R(bx - s * 2, cy - 13, 1, 8, '#d8452e'); R(bx - s * 1, cy - 14, 1, 8, '#d8452e');
+      R(bx + s * 1, cy - 1, s * 4, 2, '#b8421f');
+      R(cx - 6, cy - 2, 13, 1, '#b8421f');
+      R(cx - 7, cy - 1, 1, 2, '#e8622a'); R(cx + 7, cy - 1, 1, 2, '#e8622a');
+    }
+    if (part === 'all' || part === 'front') {
+      // chain net: stiff, shorter, rattles on a make
+      const st = net > 0 ? Math.sin(net * Math.PI) : 0;
+      const len = 8 + Math.round(st * 2), sway = Math.round(Math.sin(net * Math.PI * 4) * st * 2);
+      for (let j = 0; j < len; j++) {
+        const u = j / (len - 1), half = Math.round(6 - 2 * u), ox = Math.round(sway * u);
+        for (let x = -half; x <= half; x += 2) { ctx.fillStyle = (j % 2) ? '#9aa1ab' : '#d4d9e0'; ctx.fillRect(cx + x + ox + (j % 2), cy + 1 + j, 1, 1); }
+      }
       R(cx - 6, cy + 1, 13, 1, '#ff7a33'); R(cx - 7, cy, 1, 1, '#ff7a33'); R(cx + 7, cy, 1, 1, '#ff7a33');
       R(cx - 5, cy + 2, 11, 1, '#b8421f');
     }
@@ -6580,7 +7089,7 @@ export class Actors {
           this.play(a, name, { from: 0.3, driven: 'dunk', lock: true });
           a.one.t0 = 0.3 * an.dur; a.one.t1 = an.rel * an.dur;
           // how much extra lift the sprite needs for the hand to reach the rim
-          const f = this.bank.frameIdx(a.look, name, Math.round(an.rel * (Math.max(2, Math.round(an.dur * 14)) - 1)), a.left);
+          const f = this.bank.frameIdx(a.look, name, Math.round(an.rel * (Math.max(2, Math.round(an.dur * 14)) - 1)), a.left !== !!this.viewFlip);
           const reach = -(TWO_HAND.has(name) ? (f.handF[1] + f.handB[1]) / 2 : f.handF[1]);
           a.ov = { kind: 'dunk', tx: hoop.x + (right ? -1.5 : 1.5), ty: 25.3, w: 0, extra: Math.max(0, 87 - reach), hang: (name === 'dunk_two_hand' || name === 'alley_oop_catch' || name === 'dunk_power' || name === 'dunk_standing_two') && h2 > 0.35 ? 0.45 : 0 };
           a.dunk = name; st._dunk = a;
@@ -6967,10 +7476,11 @@ export class Actors {
     const o = a.one;
     if (o) {
       const an = ANIMS[o.name];
-      a.frame = this.bank.frame(a.look, o.name, an.loop ? o.t : Math.min(o.t, an.dur * 0.9999), a.left);
+      // viewFlip (StreetBall camera turned round): what faces left in the world faces right on screen
+      a.frame = this.bank.frame(a.look, o.name, an.loop ? o.t : Math.min(o.t, an.dur * 0.9999), a.left !== !!this.viewFlip);
       a.cur = o.name; a.curT = o.t;
     } else {
-      a.frame = this.bank.frame(a.look, a.anim, a.t, a.left);
+      a.frame = this.bank.frame(a.look, a.anim, a.t, a.left !== !!this.viewFlip);
       a.cur = a.anim; a.curT = a.t;
     }
   }
@@ -7067,6 +7577,7 @@ export class Hud {
       text(c, String(s.score[side]), x + w - 6, y + 5, { scale: 2, align: 'right', color: '#fff' });
       if (s.possession === side && L.phase !== 'final') { box(c, x + 34, y + 6, 3, 3, '#f3d35a'); box(c, x + 37, y + 7, 1, 1, '#f3d35a'); }
     };
+    if (L.street) return this.streetBug(c, x0, y, h);
     team('away', x0 + 2); team('home', x0 + 150);
     // period + clock
     const cx = x0 + 298;
@@ -7080,6 +7591,30 @@ export class Hud {
     const showSc = L.phase === 'live' || L.phase === 'inbound';
     box(c, cx + 72, y + 1, 32, h - 2, '#140d0d');
     text(c, showSc && s.clock > s.shotClock ? String(sc) : '--', cx + 88, y + 5, { scale: 2, align: 'center', color: sc <= 5 ? '#ff4a3a' : '#f3a33a' });
+  }
+
+  /** StreetBall score bug: no fouls, timeouts or game clock; the target score and the shot clock. */
+  streetBug(c, x0, y, h) {
+    const L = this.L, s = L.state, R = L.game.rules;
+    const team = (side, x) => {
+      const t = s.teams[side], w = 146;
+      box(c, x, y + 1, w, h - 2, '#171a25');
+      box(c, x, y + 1, 5, h - 2, this.colors[side]);
+      text(c, t.id, x + 9, y + 4, { color: '#fff' });
+      const need = Math.max(0, R.target - s.score[side]);
+      text(c, need ? `${need} TO GO` : 'WIN BY 2', x + 9, y + 15, { font: 'tiny', color: '#8f96a8' });
+      text(c, String(s.score[side]), x + w - 6, y + 5, { scale: 2, align: 'right', color: '#fff' });
+      if (s.possession === side && L.phase !== 'final') { box(c, x + 34, y + 6, 3, 3, '#f3d35a'); box(c, x + 37, y + 7, 1, 1, '#f3d35a'); }
+    };
+    team('away', x0 + 2); team('home', x0 + 150);
+    const cx = x0 + 298;
+    box(c, cx, y + 1, 70, h - 2, '#1d2130');
+    text(c, 'STREETBALL', cx + 35, y + 3, { font: 'tiny', color: '#9aa3b5', align: 'center' });
+    text(c, `TO ${R.target}`, cx + 35, y + 11, { align: 'center', color: '#f3d35a' });
+    const sc = Math.max(0, Math.ceil(s.shotClock));
+    const showSc = L.phase === 'live' || L.phase === 'check';
+    box(c, cx + 72, y + 1, 32, h - 2, '#140d0d');
+    text(c, showSc ? String(sc) : '--', cx + 88, y + 5, { scale: 2, align: 'center', color: sc <= 5 ? '#ff4a3a' : '#f3a33a' });
   }
 
   banner(c) {
@@ -7195,7 +7730,7 @@ export class Hud {
   intro(c, u) {
     const L = this.L, s = L.state;
     box(c, 0, 0, SW, SH, 'rgba(6,7,11,.80)');
-    text(c, 'STARTING LINEUPS', SW / 2, 16, { align: 'center', scale: 2, color: '#f3d35a', shadow: '#000' });
+    text(c, L.street ? `STREETBALL 3ON3 · FIRST TO ${L.game.rules.target}` : 'STARTING LINEUPS', SW / 2, 16, { align: 'center', scale: 2, color: '#f3d35a', shadow: '#000' });
     for (const [i, side] of ['away', 'home'].entries()) {
       const t = s.teams[side], x = i ? 334 : 26, w = 280;
       panel(c, x, 44, w, 262, '#11131bf0', this.colors[side]);
@@ -7214,7 +7749,7 @@ export class Hud {
         text(c, best.map(([k, v]) => `${k} ${v}`).join('  '), x + 56, y + 25, { font: 'tiny', color: '#cfd6e2' });
       });
     }
-    if (Math.floor(u * 40) % 2 === 0 || u > 0.5) text(c, 'PRESS SPACE TO TIP OFF', SW / 2, SH - 38, { align: 'center', color: '#fff', shadow: '#000' });
+    if (Math.floor(u * 40) % 2 === 0 || u > 0.5) text(c, L.street ? 'PRESS SPACE TO CHECK BALL' : 'PRESS SPACE TO TIP OFF', SW / 2, SH - 38, { align: 'center', color: '#fff', shadow: '#000' });
   }
 
   /** Side panel listing the controls; the half that applies right now (offense / defense) is lit. */
@@ -7225,8 +7760,9 @@ export class Hud {
     const secs = [
       ['OFFENSE', off, [['WASD', 'MOVE'], ['SHIFT', 'SPRINT (+C: BLOW-BY)'], ['SPACE', 'HOLD, LET GO TO SHOOT'], ['SPACE', 'QUICK TAP: PUMP FAKE'], ['E', 'PASS'], ['C', 'DRIBBLE MOVE'], ['V', 'SPIN MOVE'], ['Q', 'ALLEY-OOP LOB'], ['R', 'CALL PICK AND ROLL'], ['T', 'TIMEOUT']]],
       ['DEFENSE', !off, [['WASD', 'MOVE'], ['SHIFT', 'SPRINT'], ['SPACE', 'HANDS UP, REBOUND'], ['F', 'STEAL'], ['Q', 'SWITCH PLAYER'], ['R', 'DOUBLE TEAM']]],
-      ['COACH', true, [['P', 'PAUSE: SUBS, TIMEOUT'], ['M', 'FULLSCREEN'], ['H', 'HIDE THIS']]],
+      L.street ? ['GAME', true, [['P', 'PAUSE'], ['M', 'FULLSCREEN'], ['H', 'HIDE THIS']]] : ['COACH', true, [['P', 'PAUSE: SUBS, TIMEOUT'], ['M', 'FULLSCREEN'], ['H', 'HIDE THIS']]],
     ];
+    if (L.street) secs[0][2] = secs[0][2].filter(([k]) => k !== 'T');     // StreetBall: no timeouts
     const w = 122, x = SW - w - 3, y0 = 3;
     const rows = secs.reduce((n, s) => n + s[2].length + 1, 0);
     c.globalAlpha = 0.72; panel(c, x, y0, w, rows * 7 + 8, '#0e1017', '#05060a'); c.globalAlpha = 1;
@@ -7279,6 +7815,7 @@ export function drawShadow(ctx, x, y, w = 9) {
 // Reads LiveGame state only; nothing here feeds back into the game.
 import { SW, SH, FAR_Y, ZPX, Camera } from '@@render/view.js@@';
 import { Arena } from '@@render/arena.js@@';
+import { StreetArena } from '@@render/street.js@@';
 import { SpriteBank, kitFor } from '@@render/sprites.js@@';
 import { Actors } from '@@render/actors.js@@';
 import { Hud } from '@@render/hud.js@@';
@@ -7288,7 +7825,8 @@ import { text } from '@@render/font.js@@';
 
 const lerp = (a, b, u) => a + (b - a) * u;
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
-const BENCH_Y = FAR_Y - 15;          // screen row where bench players' feet sit
+const BENCH_Y = FAR_Y - 15;
+const SPIN_SECS = 1.0;               // StreetBall camera swivel on a change of possession          // screen row where bench players' feet sit
 
 export class Broadcast {
   constructor(canvas, appearance, settings, sound) {
@@ -7308,13 +7846,17 @@ export class Broadcast {
     const th = L.state.teams.home, ta = L.state.teams.away;
     const kh = kitFor(th.id, true, L.data.teams), ka = kitFor(ta.id, false, L.data.teams);
     const teamRec = (t) => ({ ...L.data.teams[t.id], id: t.id });
-    this.arena = new Arena(teamRec(th), teamRec(ta), kh.jersey, kh.trim);
+    this.arena = new (L.street ? StreetArena : Arena)(teamRec(th), teamRec(ta), kh.jersey, kh.trim);
+    this.viewSide = L.viewSide; this.spin = null;
+    this.cam.rot = L.street && L.viewSide === 'away' ? Math.PI : 0;
     this.actors = new Actors(L, this.bank, this.appearance);
+    this.actors.viewFlip = Math.cos(this.cam.rot) < 0;
     // away wears white: use its trim colour for HUD accents
     this.colors = { home: kh.jersey, away: ka.trim };
     this.hud = new Hud(L, this.actors, this.bank, this.colors);
     this.cam.zoom = 1; this.cam.view = this.zoom();
-    this.cam.snap(47);
+    this.cam.view = this.zoom();
+    this.cam.snap(L.street ? this.camTarget() : 47);
     this.net = { left: 0, right: 0 }; this.shake = { left: 0, right: 0 }; this.drop = null; this.dust = [];
     this.realT = 0; this.hideBall = 0;
   }
@@ -7341,6 +7883,14 @@ export class Broadcast {
   // ------------------------------------------------------------------ camera
   camTarget() {
     const L = this.L, b = L.ball;
+    if (L.street) {
+      // StreetBall: a close half-court frame on the basket being played. The basket of the half the
+      // ball is in (during a shot, the one it was shot at); leans a little toward the ball.
+      const st = L.phase === 'anim' && L.queue[0]?.started ? L.queue[0] : null;
+      const hoop = st?.hoop ?? L.rebCtx?.hoop ?? L.hoopOf(L.courtSide ?? L.state.possession), s = hoop.x > 47 ? 1 : -1;
+      const base = hoop.x - s * 13.5, bx = this.ballWorld?.x ?? b.x;
+      return this.cam.rw(Math.abs(bx - hoop.x) < 50 ? lerp(base, bx, 0.2) : base, 25)[0];   // in the turned view
+    }
     if (L.phase === 'tip' || L.phase === 'break' || L.phase === 'final') return 47;
     const st = L.phase === 'anim' && L.queue[0]?.started ? L.queue[0] : null;
     if (L.ftLine) { const h = L.hoopOf(L.ftLine.side); return h.x + (h.x > 47 ? -20 : 20); }
@@ -7396,7 +7946,7 @@ export class Broadcast {
       }
       this.b1 = null;
       this.ballWorld = { x: a.x, y: a.y };
-      return { x, y, fx: x, fy: cam.sy(a.y) + 1, depth: a.y + (behind ? -0.03 : 0.02), spin: Math.floor(a.curT * 9) };
+      return { x, y, fx: x, fy: cam.fy(a.x, a.y) + 1, depth: cam.rw(a.x, a.y)[1] + (behind ? -0.03 : 0.02), spin: Math.floor(a.curT * 9) };
     }
     // free ball
     let x = b.x, y = b.y, z = b.z;
@@ -7418,7 +7968,7 @@ export class Broadcast {
     if (st?.k === 'shot' && z > 10) z = 10 + (z - 10) * 0.5;      // flatter arc reads better from the side
     const [sx, sy] = cam.project(x, y, z);
     this.ballWorld = { x, y };
-    return { x: sx, y: sy, fx: cam.sx(x, y), fy: cam.sy(y), depth: y, spin: Math.floor(this.realT * 14), high: z };
+    return { x: sx, y: sy, fx: cam.sx(x, y), fy: cam.fy(x, y), depth: cam.rw(x, y)[1], spin: Math.floor(this.realT * 14), high: z };
   }
 
   actorScreen(a) {
@@ -7426,7 +7976,7 @@ export class Broadcast {
     return [Math.round(sx + (a.nudge ?? 0)), Math.round(sy - (a.zoff ?? 0))];
   }
 
-  zoom() { const z = Number(this.settings.gameZoom); return z >= 1 && z <= 1.5 ? z : 1.15; }
+  zoom() { if (this.L?.street) return 1.5; const z = Number(this.settings.gameZoom); return z >= 1 && z <= 1.5 ? z : 1.15; }
 
   /** Blit the zoomed scene to the real canvas and return its context, scaled so the HUD can draw in 640x360 units. */
   present() {
@@ -7502,25 +8052,43 @@ export class Broadcast {
     }
 
     cam.zoom = 1; cam.view = this.zoom();
+    // StreetBall: when the ball changes hands the camera swivels 180 degrees round the half court, so
+    // the team with the ball always attacks the same way on screen (home: basket on the right).
+    if (L.street) {
+      const want = L.viewSide === 'away' ? Math.PI : 0;
+      if (this.viewSide !== L.viewSide) { this.viewSide = L.viewSide; this.spin = { from: cam.rot, to: cam.rot + Math.PI, t: 0 }; }
+      if (this.spin) {
+        const sp = this.spin; sp.t = Math.min(1, sp.t + realDt / SPIN_SECS);
+        const u = sp.t < 0.5 ? 2 * sp.t * sp.t : 1 - 2 * (1 - sp.t) * (1 - sp.t);     // ease in and out
+        cam.rot = sp.from + (sp.to - sp.from) * u;
+        if (sp.t >= 1) { this.spin = null; cam.rot = want; }
+        cam.snap(this.camTarget());
+      } else cam.rot = want;
+      A.viewFlip = Math.cos(cam.rot) < 0;
+    }
     cam.follow(this.camTarget(), realDt, L.ftLine ? 2.2 : 3.4);
     const drawCam = Object.create(cam); drawCam.x = Math.round(cam.x * 8.52) / 8.52;   // snap to whole pixels: no shimmer
 
     // ---- far side: crowd, boards, benches
     const crowdFrame = this.settings.crowd !== false && A.excite > 0.3 && Math.floor(this.realT * 7) % 2 === 1;
     this.arena.drawBackdrop(c, drawCam, crowdFrame);
-    this.drawBenches(c, drawCam);
+    if (!L.street) this.drawBenches(c, drawCam);
+    const refs = L.street ? [] : A.refs;      // StreetBall: no referees
     this.arena.drawCourt(c, drawCam);
     this.cam2 = drawCam; const camSave = this.cam; this.cam = drawCam;
+
+    // StreetBall: after a defensive rebound the arc lights up until the ball is cleared past it
+    if (L.street && L.mustClear && L.phase === 'live') this.clearArc(c, drawCam);
 
     // ---- shadows, floor markers
     const ball = this.ballView();
     const ctrl = L.user && L.ctrl ? A.byEnt.get(L.ctrl) : null;
     for (const a of A.byEnt.values()) { const [sx, sy] = drawCam.project(a.x, a.y, 0); drawShadow(c, sx + (a.nudge ?? 0), sy, a.zoff > 4 ? 13 : 17); }
-    for (const r of A.refs) { const [sx, sy] = drawCam.project(r.x, r.y, 0); drawShadow(c, sx, sy, 15); }
+    for (const r of refs) { const [sx, sy] = drawCam.project(r.x, r.y, 0); drawShadow(c, sx, sy, 15); }
     for (const g of A.ghosts) { const [sx, sy] = drawCam.project(g.x, g.y, 0); drawShadow(c, sx, sy, 15); }
     if (ball) drawShadow(c, ball.fx, ball.fy, ball.high > 6 ? 5 : 7);
     if (ctrl) {
-      const [sx, sy] = this.actorScreen(ctrl), y0 = Math.round(drawCam.sy(ctrl.y));
+      const [sx, sy] = this.actorScreen(ctrl), y0 = Math.round(drawCam.fy(ctrl.x, ctrl.y));
       c.fillStyle = '#ffe14a';
       c.fillRect(sx - 9, y0 - 3, 18, 1); c.fillRect(sx - 9, y0 + 3, 18, 1); c.fillRect(sx - 12, y0 - 2, 3, 1); c.fillRect(sx + 9, y0 - 2, 3, 1);
       c.fillRect(sx - 12, y0 + 2, 3, 1); c.fillRect(sx + 9, y0 + 2, 3, 1); c.fillRect(sx - 13, y0 - 1, 1, 3); c.fillRect(sx + 12, y0 - 1, 1, 3);
@@ -7531,12 +8099,12 @@ export class Broadcast {
       if (k === L.me || !U?.roles || U.side !== L.user || !U.ctrl) continue;
       const a = A.byEnt.get(U.ctrl);
       if (!a) continue;
-      const [sx] = this.actorScreen(a), y0 = Math.round(drawCam.sy(a.y));
+      const [sx] = this.actorScreen(a), y0 = Math.round(drawCam.fy(a.x, a.y));
       c.fillStyle = '#5ac8ff';
       c.fillRect(sx - 7, y0 - 3, 14, 1); c.fillRect(sx - 7, y0 + 3, 14, 1); c.fillRect(sx - 9, y0 - 2, 2, 5); c.fillRect(sx + 7, y0 - 2, 2, 5);
     }
     if (L.passTarget) {
-      const a = A.byEnt.get(L.passTarget), [sx] = this.actorScreen(a), y0 = Math.round(drawCam.sy(a.y));
+      const a = A.byEnt.get(L.passTarget), [sx] = this.actorScreen(a), y0 = Math.round(drawCam.fy(a.x, a.y));
       c.fillStyle = '#ffffff'; c.fillRect(sx - 7, y0 + 3, 14, 1); c.fillRect(sx - 9, y0 + 2, 2, 1); c.fillRect(sx + 7, y0 + 2, 2, 1);
     }
     // sprint dust
@@ -7546,25 +8114,26 @@ export class Broadcast {
 
     // faint reflections on the polished floor
     c.globalAlpha = 0.12;
-    for (const a of A.byEnt.values()) {
+    if (!L.street) for (const a of A.byEnt.values()) {
       if (!a.frame || a.y < 0.5 || a.y > 49.5) continue;
-      const [sx, sy] = this.actorScreen(a), fy = Math.round(drawCam.sy(a.y));
+      const [sx, sy] = this.actorScreen(a), fy = Math.round(drawCam.fy(a.x, a.y));
       c.save(); c.translate(0, fy + 1 + (fy - sy) * 0.45); c.scale(1, -0.45); this.bank.draw(c, a.frame, sx, 0); c.restore();
     }
     c.globalAlpha = 1;
 
     // ---- y-sorted scene
     const items = [];
-    for (const a of A.byEnt.values()) if (a.frame) items.push({ d: a.y, a });
-    for (const r of A.refs) if (r.frame) items.push({ d: r.y, a: r });
+    for (const a of A.byEnt.values()) if (a.frame) items.push({ d: drawCam.rw(a.x, a.y)[1], a });
+    for (const r of refs) if (r.frame) items.push({ d: r.y, a: r });
     for (const g of A.ghosts) items.push({ d: g.y, g });
     const sc = L.phase === 'live' || L.phase === 'inbound' ? String(Math.max(0, Math.ceil(L.state.shotClock))) : '';
-    for (const right of [false, true]) {
+    for (const right of L.street ? [true] : [false, true]) {      // StreetBall: one basket
       const k = right ? 'right' : 'left', o = { net: this.net[k], shake: this.shake[k] > 0 ? (Math.floor(this.realT * 30) % 2 ? 1 : -1) : 0, clock: sc };
-      items.push({ d: 24.95, hoop: right, part: 'back', o }, { d: 25.05, hoop: right, part: 'front', o });
+      const hd = L.street ? drawCam.rw(88.75, 25)[1] : 25;
+      items.push({ d: hd - 0.05, hoop: right, part: 'back', o }, { d: hd + 0.05, hoop: right, part: 'front', o });
     }
     if (ball) items.push({ d: ball.depth, ball });
-    if (this.drop) items.push({ d: 25, drop: this.drop });
+    if (this.drop) items.push({ d: L.street ? drawCam.rw(this.drop.x, 25)[1] : 25, drop: this.drop });
     items.sort((p, q) => p.d - q.d);
     for (const it of items) {
       if (it.hoop !== undefined) this.arena.drawHoop(c, drawCam, it.hoop, { ...it.o, part: it.part });
@@ -7594,6 +8163,11 @@ export class Broadcast {
       } else if (holder === L.ctrl && ctrl.e.pivot && L.phase === 'live') {
         text(c, 'NO DRIBBLE: PASS OR SHOOT', sx, top - 5, { font: 'tiny', align: 'center', color: '#f3d35a', shadow: '#000' });
       }
+    }
+    // StreetBall: tell the ball handler to clear it
+    if (L.street && L.mustClear && L.phase === 'live' && holder && holder.side === L.user) {
+      const a = A.byEnt.get(holder), [sx, sy] = this.actorScreen(a);
+      text(c, 'CLEAR IT PAST THE ARC', sx, sy + (a.frame ? a.frame.oy : -60) - 26, { font: 'tiny', align: 'center', color: '#5ac8ff', shadow: '#000' });
     }
     // free throw meter (user's team at the line)
     const FM = 'viewFtMeter' in L ? L.viewFtMeter : L.ftMeter;
@@ -7633,6 +8207,16 @@ export class Broadcast {
     if (this.settings.hints !== false && !intro && L.phase !== 'final') this.hud.controls(c);
     if (intro > 0) this.hud.intro(c, intro);
     if (this.settings.fps && fps) text(c, `${Math.round(fps)} FPS`, 4, 4, { font: 'tiny', color: fps > 55 ? '#4ade80' : fps > 40 ? '#f3d35a' : '#ff5a4a', shadow: '#000' });
+  }
+
+  /** The three-point line, highlighted and pulsing (where the ball has to go). */
+  clearArc(c, cam) {
+    const on = 0.55 + 0.45 * Math.sin(this.realT * 8);
+    c.fillStyle = `rgba(90,200,255,${on.toFixed(2)})`;
+    const dot = (x, y) => { const [sx, sy] = cam.project(x, y, 0); c.fillRect(Math.round(sx) - 1, Math.round(sy), 3, 1); };
+    const hx = 88.75, a0 = Math.asin(22 / 23.75);
+    for (let i = 0; i <= 160; i++) { const t = -a0 + 2 * a0 * (i / 160); dot(hx - Math.cos(t) * 23.75, 25 + Math.sin(t) * 23.75); }
+    for (let x = 80; x <= 94; x += 0.35) { dot(x, 3); dot(x, 47); }
   }
 
   drawBenches(c, cam) {
@@ -8097,7 +8681,8 @@ export function stateHash(live) {
 // live.js). The host is one of them (or just watching) and still runs the game; every guest sends
 // its own key's buttons, and a frame carries one [bits, lag, hold] per key in `keys` order.
 
-import { LiveGame, NO_INPUT, sideOfKey, RES, meterZone, TAP_FAKE } from '@@engine/live.js@@';
+import { LiveGame, NO_INPUT, sideOfKey, RES, meterZone, TAP_FAKE, MODES } from '@@engine/live.js@@';
+import { STREET_RULES } from '@@engine/rules.js@@';
 import { encode, decode, stateHash } from '@@net/snapshot.js@@';
 
 export const STEP = 1 / 60;
@@ -8137,7 +8722,7 @@ export function applyCmd(live, c) {
   if (!U) return;
   if (c.k === 'sub') live.requestSub(c.o, c.i || null, c.s);
   else if (c.k === 'to') U.wantTimeout = true;
-  else if (c.k === 'auto') live.game.autoSubs[U.side] = !!c.on;
+  else if (c.k === 'auto' && !live.street) live.game.autoSubs[U.side] = !!c.on;
 }
 
 export class Session {
@@ -8593,6 +9178,7 @@ export class Session {
           x += dx / d * (BODY - d) * w * k; y += dy / d * (BODY - d) * w * k;
         }
         x = Math.max(m, Math.min(94 - m, x)); y = Math.max(m, Math.min(50 - m, y));
+        if (L.street && !holder) x = L.dirRight(L.courtSide) ? Math.max(x, 47.6) : Math.min(x, 46.4);   // StreetBall: same half-court rule as the game
       }
       gx = x; gy = y; gvx = vx; gvy = vy;
     }
@@ -8637,9 +9223,10 @@ export class Session {
 export function makeOnlineGame(data, cfg, key) {
   const live = new LiveGame(data, {
     home: cfg.home, away: cfg.away, user: 'both', difficulty: cfg.difficulty, seed: cfg.seed,
-    rules: { quarterMinutes: cfg.quarter, difficulty: cfg.difficulty },
-    seats: cfg.mode === '2v2' || cfg.mode === '3v3' ? cfg.keys : undefined,
+    rules: MODES[cfg.mode]?.street ? { ...STREET_RULES, difficulty: cfg.difficulty } : { quarterMinutes: cfg.quarter, difficulty: cfg.difficulty },
+    seats: cfg.mode === '2v2' || cfg.mode === '3v3' || cfg.mode === 'street' ? cfg.keys : undefined,
     seatRoles: cfg.roles,
+    lineups: MODES[cfg.mode]?.street ? cfg.lineups : undefined,     // StreetBall: the picked squads
   });
   live.user = key ? sideOfKey(key) : 'home';
   live.me = key;
@@ -9121,8 +9708,10 @@ export function onlineFor(min) {
 //   ?demo=1&home=LAL&away=GSW&speed=4       CPU vs CPU at 4x speed
 //   &intro=0 skips the lineup card, &view=classic uses the top-down view
 
-import { buildIndex } from '@@engine/data.js@@';
+import { buildIndex, POS_ORDER } from '@@engine/data.js@@';
+import { teamStreetThree } from '@@engine/game.js@@';
 import { LiveGame, SEAT_KEYS, MODES } from '@@engine/live.js@@';
+import { STREET_RULES } from '@@engine/rules.js@@';
 import { deriveBoxScore } from '@@engine/boxscore.js@@';
 import { Keyboard } from '@@ui/input.js@@';
 import { render, VIEW } from '@@ui/render.js@@';
@@ -9209,6 +9798,8 @@ const data = buildIndex(playersJson, teamsJson);
 const teamIds = Object.keys(data.teams);
 
 const keys = new Keyboard(window);
+// StreetBall: the camera turns round when the away team has the ball, so the keys turn with it
+keys.turned = () => !!(live?.street && live.viewSide === 'away');
 let live = null, paused = false, speed = 1, acc = 0, last = performance.now(), finalShown = false, finalT = 0, fps = 60;
 let net = null;            // online Session while connected to a friend (see src/net/session.js)
 
@@ -9229,11 +9820,11 @@ $('selOpp').addEventListener('change', () => {
   if ($('selOpp').value === $('selUser').value) $('selUser').value = teamIds.find((t) => t !== $('selOpp').value);
 });
 
-function start({ home, away, user, quarter = 12, difficulty = 'pro', seed }) {
+function start({ home, away, user, quarter = 12, difficulty = 'pro', seed, street = false, lineups = null }) {
   begin(new LiveGame(data, {
-    home, away, user, difficulty,
+    home, away, user, difficulty, lineups,
     seed: seed ?? (Math.floor(Math.random() * 1e9) + 1), // the seed makes the whole game reproducible
-    rules: { quarterMinutes: quarter, difficulty },
+    rules: street ? { ...STREET_RULES, difficulty } : { quarterMinutes: quarter, difficulty },
   }));
 }
 
@@ -9245,7 +9836,7 @@ function begin(L) {
   broadcast.attach(live); broadcast.prewarm();
   window.__broadcast = broadcast;
   intro = params.get('intro') === '0' || settings.view === 'classic' ? null : { t: 0, dur: user ? 9 : 3.5 };
-  $('menu').hidden = true; $('pause').hidden = true; $('final').hidden = true; $('online').hidden = true; $('online2').hidden = true;
+  $('menu').hidden = true; $('pause').hidden = true; $('final').hidden = true; $('online').hidden = true; $('online2').hidden = true; $('streetSetup').hidden = true;
   $('pauseOnline').hidden = !net;
   canvas.focus?.();
 }
@@ -9254,6 +9845,74 @@ $('btnStart').addEventListener('click', () => start({
   home: $('selUser').value, away: $('selOpp').value, user: 'home',
   quarter: Number($('selQ').value), difficulty: $('selDiff').value,
 }));
+// ---------- StreetBall: pick any three players for each squad ----------
+// One <select> listing every healthy player in the league, grouped by team (cloned for each slot).
+const pickOptions = (() => {
+  const frag = document.createDocumentFragment();
+  for (const t of [...teamIds].sort((a, b) => data.teams[a].name.localeCompare(data.teams[b].name))) {
+    const g = document.createElement('optgroup'); g.label = data.teams[t].name;
+    const ids = data.teams[t].depth_order.filter((id) => data.byId[id]?.available)
+      .sort((a, b) => data.byId[b].overall - data.byId[a].overall);
+    for (const id of ids) { const P = data.byId[id], o = document.createElement('option'); o.value = id; o.textContent = `${P.name} (${P.pos}, ${Math.round(P.overall)})`; g.appendChild(o); }
+    frag.appendChild(g);
+  }
+  return frag;
+})();
+const allHealthy = Object.keys(data.byId).filter((id) => data.byId[id].available);
+/** Three selects in `box` showing `ids`; onPick(i, id) when one changes. */
+function pickSelects(box, ids, onPick, disabled = false) {
+  if (box.children.length !== 3) {
+    box.innerHTML = '';
+    for (let i = 0; i < 3; i++) {
+      const s = document.createElement('select'); s.appendChild(pickOptions.cloneNode(true));
+      s.addEventListener('change', () => box._onPick?.(i, s.value));
+      box.appendChild(s);
+    }
+  }
+  box._onPick = onPick;
+  [...box.children].forEach((s, i) => { s.value = ids[i]; s.disabled = disabled; });
+}
+/** Who plays the Guard / Wing / Big spot: the engine orders the three by position (then pick order). */
+function streetSeatOrder(ids) {
+  return ids.map((id, i) => [id, i]).sort((a, b) => POS_ORDER[data.byId[a[0]].pos] - POS_ORDER[data.byId[b[0]].pos] || a[1] - b[1]).map((x) => x[0]);
+}
+const randomThree = (not) => { const out = []; while (out.length < 3) { const id = allHealthy[Math.floor(Math.random() * allHealthy.length)]; if (!out.includes(id) && !not.includes(id)) out.push(id); } return out; };
+const dupOf = (picks) => { const all = [...picks.home, ...picks.away]; return all.find((id, i) => all.indexOf(id) !== i) ?? null; };
+
+const street = { picks: null };
+for (const sel of [$('stTeamHome'), $('stTeamAway')]) for (const id of teamIds) { const o = document.createElement('option'); o.value = id; o.textContent = data.teams[id].name; sel.appendChild(o); }
+function streetRender() {
+  for (const side of ['home', 'away']) {
+    const box = $(side === 'home' ? 'stPicksHome' : 'stPicksAway');
+    pickSelects(box, street.picks[side], (i, id) => { street.picks[side][i] = id; streetRender(); });
+  }
+  const dup = dupOf(street.picks), same = $('stTeamHome').value === $('stTeamAway').value;
+  $('stStatus').textContent = dup ? `${data.byId[dup].name} is picked twice. Each player can only play once.` : same ? 'Pick different jerseys for the two squads.' : '';
+  $('btnStGo').disabled = !!dup || same;
+}
+function showStreetSetup() {
+  if (!street.picks) {
+    $('stTeamHome').value = $('selUser').value; $('stTeamAway').value = $('selOpp').value;
+    street.picks = { home: teamStreetThree(data, $('stTeamHome').value), away: teamStreetThree(data, $('stTeamAway').value) };
+  }
+  $('menu').hidden = true; $('streetSetup').hidden = false;
+  streetRender();
+}
+for (const [id, side] of [['stTeamHome', 'home'], ['stTeamAway', 'away']]) {
+  $(id).addEventListener('change', () => { street.picks[side] = teamStreetThree(data, $(id).value); streetRender(); });
+}
+$('stRandHome').addEventListener('click', () => { street.picks.home = randomThree(street.picks.away); streetRender(); });
+$('stRandAway').addEventListener('click', () => { street.picks.away = randomThree(street.picks.home); streetRender(); });
+$('btnStBack').addEventListener('click', () => { $('streetSetup').hidden = true; $('menu').hidden = false; });
+$('btnStreetCpu').addEventListener('click', showStreetSetup);
+$('btnStGo').addEventListener('click', () => {
+  if (dupOf(street.picks)) return;
+  $('streetSetup').hidden = true;
+  start({
+    home: $('stTeamHome').value, away: $('stTeamAway').value, user: 'home', difficulty: $('selDiff').value, street: true,
+    lineups: { home: [...street.picks.home], away: [...street.picks.away] },
+  });
+});
 $('btnDemo').addEventListener('click', () => start({
   home: $('selUser').value, away: $('selOpp').value, user: null,
   quarter: Number($('selQ').value), difficulty: $('selDiff').value,
@@ -9270,7 +9929,7 @@ keys.onPause = () => setPaused(!paused);
 
 // ---------- coach menu (inside the pause overlay): timeout + substitutions ----------
 function renderCoach() {
-  const on = !!(live && live.user);
+  const on = !!(live && live.user && !live.street);     // StreetBall: no timeouts or subs
   $('coach').hidden = !on;
   if (!on) return;
   const side = live.user, team = live.state.teams[side], rules = live.game.rules;
@@ -9386,8 +10045,10 @@ $('btnResume').addEventListener('click', () => {
 });
 $('btnQuit').addEventListener('click', () => { live = null; paused = false; $('pause').hidden = true; leaveOnline(); leave2v2(); $('menu').hidden = false; });
 $('btnAgain').addEventListener('click', () => {
+  const wasStreet = !!live?.street;
   live = null; $('final').hidden = true;
   if (net?.multi) show2v2Lobby();
+  else if (wasStreet && !net) showStreetSetup();
   else if (net) { showOnline(); onlineConnected(); } else $('menu').hidden = false;
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden && live && live.user && !net) setPaused(true); });
@@ -9872,13 +10533,19 @@ function show2v2Lobby() {
   $('menu').hidden = true; $('online2').hidden = false;
   if (lobby2) render2v2();
 }
-$('btnOnline2').addEventListener('click', () => {
+function openLobby2(mode) {
   o2Reset();
   $('o2TeamHome').value = $('selUser').value; $('o2TeamAway').value = $('selOpp').value;
   $('o2Q').value = $('selQ').value; $('o2Diff').value = $('selDiff').value;
+  $('o2Mode').value = mode; o2ModeShown();
   show2v2Lobby();
   if (srv.base && !srv.ok && srv.done) checkServer();
-});
+}
+/** StreetBall has no quarters: hide the quarter length while it is picked. */
+function o2ModeShown() { $('o2QLabel').hidden = $('o2Mode').value === 'street'; }
+$('o2Mode').addEventListener('change', o2ModeShown);
+$('btnOnline2').addEventListener('click', () => openLobby2('2v2'));
+$('btnStreet').addEventListener('click', () => openLobby2('street'));
 $('btnO2Leave').addEventListener('click', () => { leave2v2(); $('online2').hidden = true; $('menu').hidden = false; });
 
 function leave2v2() {
@@ -9930,6 +10597,7 @@ async function open2v2(role, code) {
   if (role === 'host') {
     L2.st = { mode: $('o2Mode').value, players: [{ id, name: myName(), t: performance.now() }], who: { home: id, home2: null, home3: null, away: null, away2: null, away3: null }, teams: { home: $('o2TeamHome').value, away: $('o2TeamAway').value }, q: Number($('o2Q').value), diff: $('o2Diff').value };
     if (L2.st.teams.home === L2.st.teams.away) L2.st.teams.away = teamIds.find((t) => t !== L2.st.teams.home);
+    L2.st.picks = { home: teamStreetThree(data, L2.st.teams.home), away: teamStreetThree(data, L2.st.teams.away) };   // StreetBall squads
     o2Status('Room is open. Waiting for friends to join...');
     // drop people who closed the page without saying bye (lobby only; in a game their seat waits for them)
     L2.hb = setInterval(() => {
@@ -9972,7 +10640,7 @@ function send2v2Lobby() {
   net.link.send({ t: 'lobby2', st: pubLobby() });
   render2v2();
 }
-const pubLobby = () => { const st = lobby2.st; return { mode: st.mode, players: st.players.map((p) => ({ id: p.id, name: p.name })), who: st.who, teams: st.teams, q: st.q, diff: st.diff }; };
+const pubLobby = () => { const st = lobby2.st; return { mode: st.mode, players: st.players.map((p) => ({ id: p.id, name: p.name })), who: st.who, teams: st.teams, picks: st.picks, q: st.q, diff: st.diff }; };
 for (const id of ['o2Q', 'o2Diff', 'o2Mode']) $(id).addEventListener('change', () => send2v2Lobby());
 
 /** Host: someone asks to change something in the lobby. `from` is who asked. */
@@ -9991,6 +10659,15 @@ function host2v2Change(from, m) {
     const mineSide = SEAT_KEYS.some((s) => st.who[s] === from && s.startsWith(m.side));
     if (from !== 'host' && !mineSide) return;                        // only someone on that team (or the creator)
     st.teams[m.side] = m.team;
+    // StreetBall: a new team brings its usual three (they can still be changed one by one)
+    if (st.picks) { const three = teamStreetThree(data, m.team), other = st.picks[m.side === 'home' ? 'away' : 'home']; if (!three.some((id) => other.includes(id))) st.picks[m.side] = three; }
+  } else if (m.t === 'pick') {
+    // StreetBall: anyone in the league, once; only someone on that team (or the creator) picks
+    if (!['home', 'away'].includes(m.side) || !(m.i >= 0 && m.i < 3) || !data.byId[m.id]?.available || !st.picks) return;
+    const mineSide = SEAT_KEYS.some((s) => st.who[s] === from && s.startsWith(m.side));
+    if (from !== 'host' && !mineSide) return;
+    if ([...st.picks.home, ...st.picks.away].includes(m.id)) return;  // already playing
+    st.picks[m.side][m.i] = m.id;
   }
   send2v2Lobby();
 }
@@ -10023,7 +10700,7 @@ function on2v2Msg(m) {
       if (!inGame) net.link.send({ t: 'lobby2', st: pubLobby(), to: m.from });
       return;
     }
-    if (m.t === 'seat' || m.t === 'team') { if (!(live && live.phase !== 'final')) host2v2Change(m.from, m); return; }
+    if (m.t === 'seat' || m.t === 'team' || m.t === 'pick') { if (!(live && live.phase !== 'final')) host2v2Change(m.from, m); return; }
     if (m.t === 'bye') {
       const st = L2.st;
       if (live && live.phase !== 'final') return;
@@ -10054,7 +10731,9 @@ function render2v2() {
     for (const k of keys.filter((x) => x.startsWith(side))) {
       const who = st.who[k], b = document.createElement('button');
       b.className = 'ghost seat'; b.dataset.k = k;
-      const t = document.createElement('b'); t.textContent = `${MODES[mode].names[k]}: `;
+      // StreetBall: the spot is a picked player (ordered by position like the game does)
+      const sp = mode === 'street' && st.picks ? data.byId[streetSeatOrder(st.picks[side])[Number(k.slice(-1)) - 1 || 0]] : null;
+      const t = document.createElement('b'); t.textContent = sp ? `${sp.name} (${sp.pos}): ` : `${MODES[mode].names[k]}: `;
       b.append(t, document.createTextNode(who ? `${nameOf(who)}${who === L2.id ? ' (you)' : ''}` : 'open (CPU) · sit here'));
       b.classList.toggle('mine', who === L2.id);
       b.disabled = !!who && who !== L2.id;
@@ -10066,11 +10745,18 @@ function render2v2() {
   const mySide = (side) => SEAT_KEYS.some((k) => st.who[k] === L2.id && k.startsWith(side));
   $('o2TeamHome').disabled = !(host || mySide('home'));
   $('o2TeamAway').disabled = !(host || mySide('away'));
+  for (const [side, id] of [['home', 'o2PicksHome'], ['away', 'o2PicksAway']]) {
+    const box = $(id), on = mode === 'street' && !!st.picks;
+    box.hidden = !on;
+    if (on) pickSelects(box, st.picks[side], (i, pid) => o2Pick(side, i, pid), !(host || mySide(side)));
+  }
   if (!host) { $('o2Q').value = String(st.q); $('o2Diff').value = st.diff; $('o2Mode').value = mode; }
+  o2ModeShown();
   const seated = keys.filter((k) => st.who[k]);
   const watching = st.players.filter((p) => !Object.values(st.who).includes(p.id)).map((p) => p.name);
   const same = st.teams.home === st.teams.away;
-  $('o2Match').textContent = `${mode}: ${teamName(st.teams.away)} at ${teamName(st.teams.home)}, ${st.q} min quarters. ${st.players.length} in the room${watching.length ? ` (watching: ${watching.join(', ')})` : ''}.${same ? ' Pick different teams.' : ''}${host ? '' : ' The room creator tips off.'}`;
+  const how = mode === 'street' ? `StreetBall 3on3: ${teamName(st.teams.away)} vs ${teamName(st.teams.home)}, first to 21, win by two.` : `${mode}: ${teamName(st.teams.away)} at ${teamName(st.teams.home)}, ${st.q} min quarters.`;
+  $('o2Match').textContent = `${how} ${st.players.length} in the room${watching.length ? ` (watching: ${watching.join(', ')})` : ''}.${same ? ' Pick different teams.' : ''}${host ? '' : ' The room creator tips off.'}`;
   $('btnO2Start').disabled = same || !seated.length;
 }
 function seatClick(key) {
@@ -10079,6 +10765,14 @@ function seatClick(key) {
   const k = L2.st.who[key] === L2.id ? null : key;       // click your own spot to stand up
   if (L2.role === 'host') host2v2Change('host', { t: 'seat', k });
   else net.link.send({ t: 'seat', k, to: 'host' });
+}
+function o2Pick(side, i, id) {
+  const L2 = lobby2;
+  if (!L2?.st || (live && live.phase !== 'final')) return;
+  if ([...L2.st.picks.home, ...L2.st.picks.away].includes(id)) { o2Status(`${data.byId[id].name} is already playing. Each player can only play once.`, true); render2v2(); return; }
+  o2Status('');
+  if (L2.role === 'host') host2v2Change('host', { t: 'pick', side, i, id });
+  else net.link.send({ t: 'pick', side, i, id, to: 'host' });
 }
 for (const [id, side] of [['o2TeamHome', 'home'], ['o2TeamAway', 'away']]) {
   $(id).addEventListener('change', () => {
@@ -10097,7 +10791,7 @@ $('btnO2Start').addEventListener('click', () => {
   const who = {}, names = {};
   for (const k of modeKeys(st.mode)) if (st.who[k]) { who[k] = st.who[k]; names[k] = st.players.find((p) => p.id === st.who[k])?.name ?? k; }
   if (!Object.keys(who).length) return;
-  const cfg = { mode: st.mode, roles: MODES[st.mode].roles, home: st.teams.home, away: st.teams.away, seed: Math.floor(Math.random() * 1e9) + 1, quarter: Number($('o2Q').value), difficulty: $('o2Diff').value, keys: Object.keys(who), who, names };
+  const cfg = { mode: st.mode, roles: MODES[st.mode].roles, lineups: st.mode === 'street' ? st.picks : undefined, home: st.teams.home, away: st.teams.away, seed: Math.floor(Math.random() * 1e9) + 1, quarter: Number($('o2Q').value), difficulty: $('o2Diff').value, keys: Object.keys(who), who, names };
   netMessage('');
   begin(makeOnlineGame(data, cfg, Object.keys(who).find((k) => who[k] === 'host') ?? null));
   net.hostStart(live, cfg);
@@ -10129,9 +10823,9 @@ const presName = () => ($('presName').value.trim()).slice(0, 16);
 function presButton() { $('btnPresGo').textContent = presShown && presName() ? 'Hide name' : 'Show name'; }
 function presDoing() {
   if (!live) return !$('online2').hidden ? 'multiplayer lobby' : !$('online').hidden ? 'online lobby' : 'menu';
-  if (net?.multi) return `playing ${net.cfg?.mode ?? '2v2'}`;
+  if (net?.multi) return net.cfg?.mode === 'street' ? 'playing streetball' : `playing ${net.cfg?.mode ?? '2v2'}`;
   if (net) return 'playing online';
-  return live.user ? 'playing the CPU' : 'watching CPU';
+  return live.user ? (live.street ? 'streetball vs CPU' : 'playing the CPU') : 'watching CPU';
 }
 function presRender(r, err) {
   const box = $('presList');
