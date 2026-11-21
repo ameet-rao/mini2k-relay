@@ -9,6 +9,10 @@
 //   POST /presence    "who's online": a page checks in about once a minute with its name and how long
 //                     its player has been idle; the answer is everyone online. Kept in memory only.
 //                     Someone idle for 15 minutes, or whose page stopped checking in, drops off.
+//                     Everyone with the game open is listed; no name typed = "Player 1", "Player 2"...
+//                     Each entry also shows a rough location ("Greenville, NC") looked up once from
+//                     the IP address the page connects from (ipwho.is, then ip-api.com; cached a day).
+//                     Nothing is asked of the player. GEO=off turns the lookup off.
 // The server never looks inside the messages. It sends its own {"t":"_n","n":count} to everyone in a
 // room whenever someone joins or leaves, so each side knows when the other one is there.
 //
@@ -34,7 +38,7 @@ const IDLE_DROP = 15 * 60 * 1000;  // presence: idle this long and you are off t
 const GONE_DROP = 150 * 1000;       // presence: page stopped checking in (closed, asleep)
 const ACTIVE = 2 * 60 * 1000;       // presence: green dot if they did something in the last 2 minutes
 const MAX_PEOPLE = 500;
-const people = new Map();           // id -> { name, since, lastActive, lastSeen, doing }
+const people = new Map();           // id -> { name, num, loc, since, lastActive, lastSeen, doing }
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 
 // ------------------------------------------------------------------ http
@@ -50,10 +54,10 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/presence' && req.method === 'POST') {
     let body = '';
     req.on('data', (d) => { body += d; if (body.length > 1024) req.destroy(); });
-    req.on('end', () => {
+    req.on('end', async () => {
       let m = {};
       try { m = JSON.parse(body); } catch { /* bad body: just answer with the list */ }
-      const answer = presence(m);
+      const answer = await presence(m, clientIp(req));
       res.writeHead(200, { ...cors, 'Content-Type': 'application/json' });
       res.end(JSON.stringify(answer));
     });
@@ -98,25 +102,96 @@ function count(room) {
 
 // ------------------------------------------------------------------ who's online
 
-function presence(m) {
+async function presence(m, ip) {
   const now = Date.now();
   for (const [id, p] of people) if (now - p.lastActive > IDLE_DROP || now - p.lastSeen > GONE_DROP) people.delete(id);
   const id = typeof m.id === 'string' && /^[A-Za-z0-9_-]{6,40}$/.test(m.id) ? m.id : null;
   const name = String(m.name ?? '').replace(/[^\p{L}\p{N} ._'-]/gu, '').trim().slice(0, 16);
   if (id && m.bye) people.delete(id);
-  else if (id && name) {
+  else if (id) {
     const idle = Math.max(0, Math.min(IDLE_DROP, Number(m.idle) * 1000 || 0));
     if (idle < IDLE_DROP) {
       let p = people.get(id);
-      if (!p && people.size < MAX_PEOPLE) { p = { since: now }; people.set(id, p); }
-      if (p) Object.assign(p, { name, lastActive: now - idle, lastSeen: now, doing: String(m.doing ?? '').slice(0, 24) });
+      if (!p && people.size < MAX_PEOPLE) { p = { since: now, num: freeNumber(), loc: '' }; people.set(id, p); }
+      if (p) {
+        Object.assign(p, { name, lastActive: now - idle, lastSeen: now, doing: String(m.doing ?? '').slice(0, 24) });
+        if (p.ip !== ip) {
+          // new player (or new network): look the place up; wait a moment so the first answer has it
+          p.ip = ip;
+          const look = locate(ip).then((loc) => { if (p.ip === ip) p.loc = loc; });
+          await Promise.race([look, new Promise((r) => setTimeout(r, 1500))]);
+        }
+      }
     }
   }
   const list = [...people.entries()]
     .sort((a, b) => a[1].since - b[1].since)
     .slice(0, 100)
-    .map(([pid, p]) => ({ name: p.name, min: Math.floor((now - p.since) / 60000), active: now - p.lastActive < ACTIVE, idleMin: Math.floor((now - p.lastActive) / 60000), doing: p.doing, me: pid === id || undefined }));
+    .map(([pid, p]) => ({ name: p.name || `Player ${p.num}`, anon: !p.name || undefined, loc: p.loc || undefined, min: Math.floor((now - p.since) / 60000), active: now - p.lastActive < ACTIVE, idleMin: Math.floor((now - p.lastActive) / 60000), doing: p.doing, me: pid === id || undefined }));
   return { n: people.size, list };
+}
+
+/** Lowest player number nobody online is using, so numbers stay small and each player keeps theirs. */
+function freeNumber() {
+  const used = new Set([...people.values()].map((p) => p.num));
+  let n = 1;
+  while (used.has(n)) n++;
+  return n;
+}
+
+/** The player's public IP. Railway and Render put it first in X-Forwarded-For. */
+function clientIp(req) {
+  const fwd = String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim();
+  return (fwd || req.headers['x-real-ip'] || req.socket.remoteAddress || '').replace(/^::ffff:/, '');
+}
+
+// ------------------------------------------------------------------ rough location from the IP address
+
+const GEO_ON = process.env.GEO !== 'off';
+const GEO_KEEP = 24 * 60 * 60 * 1000;
+const geoCache = new Map();          // ip -> { loc, at }
+const geoPending = new Map();        // ip -> Promise<string>
+
+/** "Greenville, NC" in the US, "Toronto, CA" elsewhere; '' if unknown. One lookup per IP per day. */
+function locate(ip) {
+  if (!GEO_ON || !ip || isPrivate(ip)) return Promise.resolve('');
+  const hit = geoCache.get(ip);
+  if (hit && Date.now() - hit.at < GEO_KEEP) return Promise.resolve(hit.loc);
+  if (geoPending.has(ip)) return geoPending.get(ip);
+  const job = (async () => {
+    let loc = '';
+    try {
+      const r = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}?fields=success,city,region,region_code,country_code`, { signal: AbortSignal.timeout(4000) });
+      const j = await r.json();
+      if (j.success) loc = placeName(j.city, j.region_code || j.region, j.country_code);
+    } catch { /* try the second service */ }
+    if (!loc) {
+      try {
+        const r = await fetch(`http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,city,region,regionName,countryCode`, { signal: AbortSignal.timeout(4000) });
+        const j = await r.json();
+        if (j.status === 'success') loc = placeName(j.city, j.region || j.regionName, j.countryCode);
+      } catch { /* unknown */ }
+    }
+    if (geoCache.size > 5000) geoCache.clear();
+    geoCache.set(ip, { loc, at: Date.now() });
+    geoPending.delete(ip);
+    if (loc) log('location', loc);
+    return loc;
+  })();
+  geoPending.set(ip, job);
+  return job;
+}
+
+function placeName(city, region, country) {
+  const clean = (v) => String(v ?? '').replace(/[^\p{L}\p{N} .'-]/gu, '').trim().slice(0, 28);
+  city = clean(city); region = clean(region); country = clean(country).toUpperCase();
+  const second = country === 'US' ? region : country;
+  return [city || (country === 'US' ? '' : region), second].filter(Boolean).join(', ');
+}
+
+function isPrivate(ip) {
+  return /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|0\.)/.test(ip)
+    || ip === '::1' || /^f[cd]/i.test(ip) || /^fe80/i.test(ip);
 }
 
 // ------------------------------------------------------------------ websocket (RFC 6455, text frames)

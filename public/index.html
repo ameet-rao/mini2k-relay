@@ -168,7 +168,7 @@
       <label>FPS <input type="checkbox" class="setFps"></label>
     </div>
     <div class="presence" id="presence">
-      <div class="prow"><b>Online now <span id="presCount"></span></b><input type="text" id="presName" maxlength="16" autocomplete="off" spellcheck="false" placeholder="YOUR NAME"><button class="ghost" id="btnPresGo">Show me</button></div>
+      <div class="prow"><b>Online now <span id="presCount"></span></b><input type="text" id="presName" maxlength="16" autocomplete="off" spellcheck="false" placeholder="YOUR NAME"><button class="ghost" id="btnPresGo">Show name</button></div>
       <div id="presList"></div>
     </div>
     <div class="actions"><button id="btnStart">Tip Off Now</button><button class="ghost" id="btnOnline">Play a friend online</button><button class="ghost" id="btnOnline2">Multiplayer (2v2 / 3v3)</button><button class="ghost" id="btnDemo">Watch CPU vs CPU</button><button class="ghost btnFull">Fullscreen</button></div>
@@ -9041,7 +9041,8 @@ export class HubLink {
   close() { this.closed = true; try { this.ws?.close(); this.bc?.close(); } catch { /* gone */ } }
 }
 </script>
-<script type="text/plain" data-mod="net/presence.js">// "Online now": who has the game open, by name, for how long, and whether they are active.
+<script type="text/plain" data-mod="net/presence.js">// "Online now": everyone who has the game open (by name, or "Player 3" if they never typed one, with a
+// rough location the server works out from their IP address), for how long, and whether active.
 //
 // Cheap on purpose (the server is paid by use): one small request about once a minute (every 30 s
 // while the list is on screen), and none at all once the player has been idle for 15 minutes, so a
@@ -10119,12 +10120,13 @@ window.__lobby2 = () => lobby2 && { role: lobby2.role, code: lobby2.code, st: lo
 
 
 // ====================================================================== online now
-// Who has the game open (name, time online, green dot = active). See src/net/presence.js: one small
-// check-in a minute, nothing once you have been idle 15 minutes.
+// Everyone who has the game open (name, or "Player 3" if they never typed one, rough location from
+// the server, time online, green dot = active). See src/net/presence.js: one small check-in a minute,
+// nothing once you have been idle 15 minutes.
 let presence = null, presShown = false;
 try { presShown = localStorage.getItem('mini2k.shown') === '1'; $('presName').value = localStorage.getItem('mini2k.name') ?? ''; } catch { /* private mode */ }
 const presName = () => ($('presName').value.trim()).slice(0, 16);
-function presButton() { $('btnPresGo').textContent = presShown && presName() ? 'Hide me' : 'Show me'; }
+function presButton() { $('btnPresGo').textContent = presShown && presName() ? 'Hide name' : 'Show name'; }
 function presDoing() {
   if (!live) return !$('online2').hidden ? 'multiplayer lobby' : !$('online').hidden ? 'online lobby' : 'menu';
   if (net?.multi) return `playing ${net.cfg?.mode ?? '2v2'}`;
@@ -10140,16 +10142,16 @@ function presRender(r, err) {
   }
   $('presCount').textContent = `(${r.n})`;
   box.innerHTML = '';
-  if (!r.list.length) { box.textContent = 'Nobody yet. Type your name and press Show me.'; return; }
+  if (!r.list.length) { box.textContent = 'Nobody yet.'; return; }
   for (const p of r.list) {
     const d = document.createElement('span'); d.className = 'p';
     const dot = document.createElement('i'); dot.className = `dot${p.active ? ' on' : ''}`;
-    const nm = document.createElement('b'); nm.textContent = p.name + (p.me ? ' (you)' : '');
+    const nm = document.createElement('b'); nm.textContent = p.name + (p.loc ? ` - ${p.loc}` : '') + (p.me ? ' (you)' : '');
     d.append(dot, nm, document.createTextNode(` ${onlineFor(p.min)}${p.active ? '' : `, idle ${p.idleMin} min`}${p.doing ? ` · ${p.doing}` : ''}`));
     box.appendChild(d);
   }
   if (!presShown || !presName()) {
-    const t = document.createElement('span'); t.textContent = 'Type your name and press Show me so others can see you.';
+    const t = document.createElement('span'); t.textContent = 'Type your name and press Show name to use it instead of your player number.';
     box.appendChild(t);
   }
 }
@@ -10160,7 +10162,7 @@ $('btnPresGo').addEventListener('click', () => {
   try { localStorage.setItem('mini2k.shown', presShown ? '1' : '0'); localStorage.setItem('mini2k.name', presName()); } catch { /* ignore */ }
   if (!$('o2Name').value.trim()) $('o2Name').value = presName();
   presButton();
-  if (!presShown) presence?.send({ bye: true }); else presence?.soon(50);
+  presence?.soon(50);
 });
 $('presName').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') { presShown = false; $('btnPresGo').click(); } });
 $('presName').addEventListener('input', presButton);
@@ -10178,7 +10180,7 @@ for (const ev of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart'
   });
   presence.start();
   window.__presence = presence;
-  addEventListener('pagehide', () => { if (presShown) presence.bye(); });
+  addEventListener('pagehide', () => presence.bye());
   // back on the menu: fresh list
   new MutationObserver(() => { if (!$('menu').hidden) presence.now(); }).observe($('menu'), { attributes: true, attributeFilter: ['hidden'] });
 })();
