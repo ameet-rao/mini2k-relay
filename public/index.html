@@ -6635,6 +6635,164 @@ def('shift', 0.42, false, [
   [1, { lean: 22, aF: [36, 36], aB: [-20, 30], lF: [30, 32], lB: [-22, 28], ball: 'F' }],
 ], { bp: [[0, 'F'], [0.3, 'fl', 6], [0.55, 'F'], [0.82, 'fl', 5], [1, 'F']] });
 
+// ================================================================== batch 7 (v30): 25 more animations
+// Triple threat and ball security
+const TT = { lean: 26, aF: [20, 96], aB: [34, 88], lF: [36, 56], lB: [-14, 44], ball: '2' };
+def('rip_low', 0.5, false, [            // ball swung low past the ankles from the triple threat
+  [0, TT],
+  [0.3, { lean: 46, aF: [22, 10], aB: [30, 6], lF: [58, 70], lB: [-20, 30], dx: 1, ball: '2' }],
+  [0.6, { lean: 48, aF: [-22, 18], aB: [-12, 14], lF: [60, 72], lB: [-24, 32], dx: 2, ball: '2' }],
+  [1, TT],
+]);
+def('head_fake', 0.45, false, [         // eyes and shoulders up as if to shoot, ball to the chin
+  [0, TT],
+  [0.4, { lean: 6, head: -14, aF: [70, 96], aB: [80, 84], lF: [20, 30], lB: [-8, 28], lift: 1, ball: '2' }],
+  [1, TT],
+]);
+def('dribble_shield', 0.56, true, cycle({ stride: 30, knee: 44, lean: 22, bounce: 1, elbow: 50, armF: [-16, 40], armB: [72, 78] }), { ball: 'drib' });  // off-arm "chicken wing"
+def('catch_bullet', 0.32, false, [      // a hard pass: hands out, absorb it back into the chest
+  [0, { lean: 4, aF: [96, 6], aB: [100, 4], lF: [16, 14], lB: [-10, 14] }],
+  [0.35, { lean: -6, aF: [80, 50], aB: [84, 44], lF: [24, 12], lB: [-16, 20], dx: -1, ball: '2' }],
+  [1, { lean: 20, aF: [40, 84], aB: [50, 74], lF: [28, 40], lB: [-8, 32], ball: '2' }],
+]);
+def('catch_low', 0.34, false, [         // bounce pass: scooped up off the floor
+  [0, { lean: 36, aF: [40, 0], aB: [44, 0], lF: [40, 50], lB: [-14, 40] }],
+  [0.4, { lean: 40, aF: [34, 22], aB: [38, 18], lF: [42, 54], lB: [-14, 42], ball: '2' }],
+  [1, { lean: 24, aF: [40, 80], aB: [50, 70], lF: [30, 44], lB: [-8, 34], ball: '2' }],
+]);
+// Contact
+def('d_body_up', 0.45, false, [         // chest-to-chest, hands back, riding the driver's hip
+  [0, { lean: 22, aF: [74, 16], aB: [-52, -22], lF: [34, 46], lB: [-32, 46] }],
+  [0.35, { lean: 30, aF: [-20, 60], aB: [-40, 50], lF: [44, 46], lB: [-40, 30], dx: 2 }],
+  [0.7, { lean: 26, aF: [-10, 50], aB: [-34, 46], lF: [40, 44], lB: [-36, 32], dx: 1 }],
+  [1, { lean: 22, aF: [70, 22], aB: [-48, -28], lF: [34, 50], lB: [-32, 50] }],
+]);
+def('bump_stumble', 0.5, false, [       // the ball handler knocked off his line, keeps the dribble
+  [0, { lean: 20, aF: [36, 36], aB: [-20, 30], lF: [34, 32], lB: [-22, 28], ball: 'F' }],
+  [0.25, { lean: -6, head: 8, aF: [20, 40], aB: [40, 60], lF: [30, 20], lB: [-10, 50], dx: -2, lift: 2, ball: 'F' }],
+  [0.55, { lean: 4, aF: [26, 40], aB: [20, 50], lF: [10, 30], lB: [-30, 20], dx: -2, ball: 'F' }],
+  [1, { lean: 22, aF: [36, 36], aB: [-20, 30], lF: [30, 30], lB: [-20, 28], dx: -1, ball: 'F' }],
+]);
+def('swim_by', 0.5, false, [            // one arm over the defender's shoulder to slip past
+  [0, { lean: 18, aF: [-40, 40], aB: [30, 60], lF: [36, 40], lB: [-30, 30] }],
+  [0.35, { lean: 10, aF: [160, 30], aB: [10, 60], lF: [-10, 20], lB: [40, 60], lift: 1 }],
+  [0.65, { lean: 24, aF: [110, 20], aB: [-20, 60], lF: [40, 50], lB: [-34, 30] }],
+  [1, { lean: 20, aF: [30, 60], aB: [-30, 60], lF: [10, 30], lB: [-10, 40] }],
+]);
+def('box_out_hip', 0.6, true, [         // hip check: sit into him, then bump back
+  [0, { lean: 30, aF: [-30, -30], aB: [-64, -24], lF: [40, 50], lB: [-30, 46] }],
+  [0.4, { lean: 36, aF: [-44, -36], aB: [-80, -30], lF: [44, 56], lB: [-36, 40], dx: -2 }],
+  [0.6, { lean: 34, aF: [-40, -34], aB: [-76, -28], lF: [42, 54], lB: [-34, 42], dx: -2 }],
+]);
+def('d_post_bar', 0.8, true, [          // forearm bar in the post man's back, other hand up
+  [0, { lean: 18, aF: [70, 30], aB: [150, 20], lF: [36, 46], lB: [-34, 46] }],
+  [0.5, { lean: 22, aF: [76, 24], aB: [154, 16], lF: [38, 50], lB: [-36, 48], dx: 1 }],
+]);
+def('screen_squeeze', 0.46, true, [     // sliding sideways through the gap, arms tucked in
+  [0, { lean: 4, aF: [20, 120], aB: [10, 130], lF: [30, 20], lB: [-26, 20] }],
+  [0.5, { lean: 6, aF: [24, 124], aB: [14, 130], lF: [10, 20], lB: [-8, 20], lift: 1 }],
+]);
+def('land_hop', 0.55, false, [          // a closeout lands in his space: leg kicked out, one-foot hop
+  [0, { lean: 4, aF: [140, -30], aB: [60, 40], lF: [14, 24], lB: [-8, 22] }],
+  [0.25, { lean: -10, aF: [110, 10], aB: [100, 10], lF: [40, 10], lB: [-6, 40], lift: 3, dx: -1 }],
+  [0.5, { lean: -4, aF: [90, 20], aB: [80, 20], lF: [30, 6], lB: [-4, 30], dx: -1 }],
+  [0.75, { lean: 2, aF: [60, 20], aB: [40, 20], lF: [20, 20], lB: [-6, 40], lift: 2, dx: -1 }],
+  [1, { lean: 8, aF: [10, 20], aB: [0, 20], lF: [14, 20], lB: [-10, 20] }],
+]);
+// Footwork
+def('chop_stop', 0.45, false, [         // full speed to a stop: chop steps, weight back
+  [0, { lean: 22, lF: [40, 40], lB: [-30, 40], aF: [40, 80], aB: [-40, 80] }],
+  [0.2, { lean: 4, lF: [30, 20], lB: [-10, 30], aF: [30, 70], aB: [-10, 60], lift: 1 }],
+  [0.4, { lean: -4, lF: [14, 30], lB: [-24, 14], aF: [20, 60], aB: [0, 50] }],
+  [0.6, { lean: -2, lF: [30, 16], lB: [-8, 30], aF: [24, 50], aB: [-6, 40], lift: 1 }],
+  [0.8, { lean: 2, lF: [20, 26], lB: [-16, 20], aF: [16, 40], aB: [-6, 30] }],
+  [1, { lean: 10, lF: [20, 26], lB: [-12, 24], aF: [10, 30], aB: [-10, 30] }],
+]);
+def('v_cut', 0.45, false, [             // plant the old way, drop the shoulder, push off the new way
+  [0, { lean: 20, lF: [40, 30], lB: [-30, 40], aF: [30, 60], aB: [-30, 60], flip: true }],
+  [0.3, { lean: 34, head: 6, lF: [50, 60], lB: [-10, 20], aF: [10, 40], aB: [40, 30], dx: 1, flip: true }],
+  [0.5, { lean: 14, aF: [60, 40], aB: [-50, 30], lF: [-20, 30], lB: [40, 70] }],
+  [1, { lean: 22, lF: [44, 50], lB: [-30, 30], aF: [-30, 70], aB: [40, 70] }],
+]);
+def('catch_tiptoe', 0.5, false, [       // catching on the line: up on the toes, leaning back in
+  [0, { lean: -8, aF: [120, 10], aB: [110, 10], lF: [6, 4], lB: [-4, 4], lift: 2 }],
+  [0.3, { lean: -10, aF: [100, 40], aB: [96, 36], lF: [4, 2], lB: [-4, 2], lift: 3, ball: '2' }],
+  [0.65, { lean: 4, aF: [60, 80], aB: [66, 70], lF: [10, 6], lB: [-6, 6], lift: 2, ball: '2' }],
+  [1, { lean: 20, aF: [40, 84], aB: [50, 74], lF: [28, 40], lB: [-8, 32], ball: '2' }],
+]);
+def('oob_save', 0.75, false, [          // lunge and bat the loose ball back in
+  [0, { lean: 30, aF: [60, 20], aB: [-30, 30], lF: [50, 40], lB: [-30, 30] }],
+  [0.3, { lean: 50, aF: [110, 10], aB: [-50, 20], lF: [40, 60], lB: [-60, 10], lift: 6, dx: 2 }],
+  [0.5, { lean: 40, aF: [-60, 20], aB: [-40, 20], lF: [30, 50], lB: [-50, 20], lift: 5, dx: 3 }],
+  [0.8, { lean: 30, aF: [40, 30], aB: [60, 30], lF: [40, 60], lB: [-20, 40], lift: 1, dx: 3 }],
+  [1, { lean: 20, aF: [20, 30], aB: [10, 30], lF: [30, 40], lB: [-16, 30], dx: 2 }],
+]);
+// Rebounding and passing
+def('tip_out', 0.55, false, [           // one hand up, taps it out to a team-mate
+  [0, { lean: 10, aF: [60, 60], aB: [50, 60], lF: [30, 50], lB: [-10, 40] }],
+  [0.35, { lean: 0, aF: [176, 6], aB: [80, 30], lF: [6, 20], lB: [-6, 30], lift: 9 }],
+  [0.5, { lean: 6, aF: [150, 10], aB: [80, 30], lF: [6, 20], lB: [-6, 30], lift: 10 }],
+  [1, { lean: 14, aF: [60, 40], aB: [40, 40], lF: [20, 30], lB: [-10, 26] }],
+]);
+def('pass_wrap', 0.4, false, [          // wrap-around: the ball goes round the defender's hip
+  [0, { lean: 20, aF: [40, 80], aB: [50, 70], lF: [40, 40], lB: [-20, 30], ball: '2' }],
+  [0.35, { lean: 26, aF: [-30, 30], aB: [10, 40], lF: [50, 50], lB: [-24, 30], dx: 1, ball: 'F' }],
+  [0.55, { lean: 30, aF: [60, -10], aB: [20, 40], lF: [54, 50], lB: [-26, 30], dx: 2, ball: 'F' }],
+  [1, { lean: 26, aF: [80, -10], aB: [10, 40], lF: [50, 50], lB: [-24, 30], dx: 2 }],
+], { rel: 0.55 });
+def('pass_under', 0.36, false, [        // under the outstretched arm: a low flick
+  [0, { lean: 28, aF: [20, 60], aB: [30, 50], lF: [40, 46], lB: [-16, 34], ball: '2' }],
+  [0.3, { lean: 36, aF: [-10, 10], aB: [40, 40], lF: [46, 52], lB: [-18, 34], ball: 'F' }],
+  [0.5, { lean: 38, aF: [40, -4], aB: [36, 40], lF: [48, 52], lB: [-18, 34], ball: 'F' }],
+  [1, { lean: 30, aF: [70, -10], aB: [30, 40], lF: [44, 50], lB: [-16, 34] }],
+], { rel: 0.5 });
+// Dribble style variants (cosmetic: the game still plays the move it chose)
+def('crossover_quick', 0.36, false, [   // low and snappy, built for getting to the rim
+  [0, { lean: 30, aF: [30, 30], aB: [-10, 30], lF: [46, 50], lB: [-30, 30], ball: 'F' }],
+  [0.4, { lean: 34, aF: [10, 14], aB: [24, 20], lF: [50, 56], lB: [-32, 32], ball: 'F' }],
+  [0.6, { lean: 34, aF: [-6, 20], aB: [30, 18], lF: [48, 54], lB: [-32, 32], dx: 1, ball: 'B' }],
+  [1, { lean: 30, aF: [-10, 30], aB: [34, 30], lF: [40, 44], lB: [-26, 30], dx: 1, ball: 'B' }],
+], { bp: [[0, 'F'], [0.48, 'fl', 4], [0.62, 'B'], [1, 'B']] });
+def('tween_escape', 0.55, false, [      // between the legs while backing out of trouble
+  [0, { lean: 22, aF: [34, 30], aB: [-14, 20], lF: [40, 40], lB: [-30, 30], ball: 'F' }],
+  [0.35, { lean: 26, aF: [14, 6], aB: [-4, 8], lF: [56, 40], lB: [-36, 34], dx: -2, ball: 'F' }],
+  [0.6, { lean: 14, aF: [10, 20], aB: [-14, 14], lF: [40, 20], lB: [-40, 40], dx: -3, lift: 1, ball: 'B' }],
+  [1, { lean: 10, aF: [20, 40], aB: [-20, 30], lF: [20, 26], lB: [-16, 26], dx: -3, ball: 'B' }],
+], { bp: [[0, 'F'], [0.48, 'fl', 1], [0.66, 'B'], [1, 'B']] });
+def('btb_launch', 0.5, false, [         // behind the back straight into a burst
+  [0, { lean: 14, aF: [20, 24], aB: [-10, 20], lF: [30, 28], lB: [-20, 26], ball: 'F' }],
+  [0.3, { lean: 10, aF: [-50, -16], aB: [-24, 14], lF: [36, 30], lB: [-24, 28], ball: 'F' }],
+  [0.55, { lean: 18, aF: [-20, 10], aB: [-50, -10], lF: [40, 40], lB: [-30, 30], ball: 'B' }],
+  [0.8, { lean: 36, aF: [-30, 40], aB: [40, 30], lF: [60, 60], lB: [-40, 20], dx: 2, ball: 'B' }],
+  [1, { lean: 34, aF: [-20, 50], aB: [44, 30], lF: [50, 56], lB: [-34, 26], dx: 2, ball: 'B' }],
+], { bp: [[0, 'F'], [0.32, 'hp', -6, 1], [0.5, 'fl', -4, 1], [0.62, 'B'], [1, 'B']] });
+def('hesi_lateral', 0.6, false, [       // side hop, freeze with the ball on the hip, then go
+  [0, { lean: 20, aF: [36, 38], aB: [-20, 30], lF: [34, 32], lB: [-22, 28], ball: 'F' }],
+  [0.2, { lean: 8, aF: [20, 60], aB: [-30, 50], lF: [20, 30], lB: [-14, 30], lift: 3, ball: 'F' }],
+  [0.4, { lean: 2, head: -10, aF: [24, 80], aB: [-20, 50], lF: [12, 20], lB: [-12, 20], ball: 'F' }],
+  [0.6, { lean: 2, head: -8, aF: [26, 76], aB: [-20, 50], lF: [12, 20], lB: [-12, 20], ball: 'F' }],
+  [0.8, { lean: 30, aF: [46, 30], aB: [-34, 40], lF: [48, 46], lB: [-32, 30], ball: 'F' }],
+  [1, { lean: 26, aF: [46, 30], aB: [-30, 40], lF: [34, 36], lB: [-24, 28], ball: 'F' }],
+], { bp: [[0, 'F'], [0.15, 'fl', 5], [0.32, 'hp', 4], [0.62, 'hp', 4], [0.78, 'fl', 6], [1, 'F']] });
+def('spin_back_cross', 0.7, false, [    // half spin, spin back, cross it over
+  [0, { lean: 18, aF: [34, 60], aB: [-10, 40], lF: [32, 30], lB: [-22, 28], ball: 'F' }],
+  [0.25, { lean: 8, aF: [20, 96], aB: [30, 86], lF: [10, 30], lB: [-6, 30], ball: '2', flip: true }],
+  [0.45, { lean: 14, aF: [30, 70], aB: [-6, 40], lF: [30, 30], lB: [-20, 28], ball: 'F' }],
+  [0.62, { lean: 28, aF: [10, 18], aB: [30, 24], lF: [44, 46], lB: [-30, 30], ball: 'F' }],
+  [0.78, { lean: 28, aF: [-6, 26], aB: [40, 30], lF: [20, 30], lB: [-30, 26], ball: 'B' }],
+  [1, { lean: 22, aF: [-10, 30], aB: [38, 36], lF: [30, 30], lB: [-20, 28], ball: 'B' }],
+], { bp: [[0, 'F'], [0.12, 'fl', 4], [0.25, 'hp', 3], [0.42, 'F'], [0.7, 'fl', 5], [0.8, 'B'], [1, 'B']] });
+def('misdirection', 0.5, false, [       // shoulders sell one way, he goes the other
+  [0, { lean: 20, aF: [36, 36], aB: [-20, 30], lF: [30, 30], lB: [-20, 28], ball: 'F' }],
+  [0.22, { lean: 16, aF: [30, 40], aB: [-30, 30], lF: [30, 30], lB: [-14, 30], dx: -1, flip: true, ball: 'F' }],
+  [0.42, { lean: 22, head: -6, aF: [30, 40], aB: [-30, 30], lF: [36, 34], lB: [-20, 30], dx: -1, flip: true, ball: 'F' }],
+  [0.6, { lean: 36, aF: [50, 24], aB: [-40, 44], lF: [56, 56], lB: [-36, 24], dx: 1, ball: 'F' }],
+  [1, { lean: 26, aF: [46, 30], aB: [-30, 40], lF: [36, 36], lB: [-24, 28], ball: 'F' }],
+], { bp: [[0, 'F'], [0.12, 'fl', 5], [0.3, 'F'], [0.5, 'fl', 6], [0.7, 'F'], [1, 'F']] });
+export const BATCH7 = ['rip_low', 'head_fake', 'dribble_shield', 'catch_bullet', 'catch_low', 'd_body_up', 'bump_stumble', 'swim_by',
+  'box_out_hip', 'd_post_bar', 'screen_squeeze', 'land_hop', 'chop_stop', 'v_cut', 'catch_tiptoe', 'oob_save', 'tip_out', 'pass_wrap',
+  'pass_under', 'crossover_quick', 'tween_escape', 'btb_launch', 'hesi_lateral', 'spin_back_cross', 'misdirection'];
+
 /** Ball path from a move's hand changes: a bounce between hands (in front, through the legs or behind). */
 function autoPath(an) {
   const kind = /tween|between/.test(an.name) ? [1, 0] : /behind|wrap|btb/.test(an.name) ? [-4, 1] : [5, 0];
@@ -6651,7 +6809,8 @@ function autoPath(an) {
 }
 export const DRIBBLE_MOVES = ['crossover', 'between_legs', 'behind_back', 'hesitation', 'spin', 'step_back', 'shift',
   'in_and_out', 'double_cross', 'snatch_back', 'stutter_step', 'half_spin', 'push_cross', 'combo_cross_tween', 'combo_btb_cross',
-  'escape_retreat', 'drag_cross', 'hang_hesi', 'wrap_behind', 'spin_reverse', 'stepback_cross'];
+  'escape_retreat', 'drag_cross', 'hang_hesi', 'wrap_behind', 'spin_reverse', 'stepback_cross',
+  'crossover_quick', 'tween_escape', 'btb_launch', 'hesi_lateral', 'spin_back_cross', 'misdirection', 'bump_stumble'];
 for (const n of DRIBBLE_MOVES) {
   const an = A[n];
   if (!an.bp) an.bp = autoPath(an);
@@ -6697,6 +6856,10 @@ export const ANIM_GROUPS = {
   'Motion styles': ['jog_big', 'sprint_guard', 'dribble_low', 'dribble_big'],
   'Post 2': ['post_backdown', 'post_spin', 'post_fake', 'post_fade', 'post_hop_hook', 'post_shake'],
   'Defense 3': ['d_bite', 'd_trap', 'ft_lane', 'call_for_ball'],
+  'Ball security (v30)': ['rip_low', 'head_fake', 'dribble_shield', 'catch_bullet', 'catch_low', 'catch_tiptoe'],
+  'Contact (v30)': ['d_body_up', 'bump_stumble', 'swim_by', 'box_out_hip', 'd_post_bar', 'screen_squeeze', 'land_hop'],
+  'Footwork, boards, passes (v30)': ['chop_stop', 'v_cut', 'oob_save', 'tip_out', 'pass_wrap', 'pass_under'],
+  'Dribble styles (v30)': ['crossover_quick', 'tween_escape', 'btb_launch', 'hesi_lateral', 'spin_back_cross', 'misdirection'],
   'Bench/Refs': ['sit', 'stand_cheer', 'ref_run', 'ref_whistle', 'ref_foul_signal', 'ref_count', 'ref_out_of_bounds'],
 };
 
@@ -6889,11 +7052,21 @@ const other = (s) => (s === 'home' ? 'away' : 'home');
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const lerp = (a, b, u) => a + (b - a) * u;
 const ease = (u) => { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); };
-const NOMINAL = { walk: 4.5, jog: 9.5, sprint: 15, backpedal: 7, side_shuffle: 6, d_slide: 7, d_closeout: 9, dribble_jog: 9, dribble_sprint: 14, ref_run: 10, post_up: 3, protect_ball: 4, roll_call: 12, jog_big: 9, sprint_guard: 16, dribble_low: 10, dribble_big: 8, post_backdown: 3 };
+const NOMINAL = { walk: 4.5, jog: 9.5, sprint: 15, backpedal: 7, side_shuffle: 6, d_slide: 7, d_closeout: 9, dribble_jog: 9, dribble_sprint: 14, ref_run: 10, post_up: 3, protect_ball: 4, roll_call: 12, jog_big: 9, sprint_guard: 16, dribble_low: 10, dribble_big: 8, post_backdown: 3, dribble_shield: 8 };
 const TWO_HAND = new Set(['dunk_two_hand', 'alley_oop_catch', 'reverse', 'dunk_standing_two', 'dunk_power', 'dunk_spin', 'putback_dunk', 'dunk_double_clutch', 'dunk_behind_head']);
 const idNum = (id) => { let h = 0; for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0; return h; };
 const pick = (u, arr) => arr[Math.min(arr.length - 1, Math.floor(u * arr.length))];
 const COACH_KIT = { jersey: '#22242e', trim: '#3a3d4c', number: '#22242e', shorts: '#1a1b22', shoe: '#101014' };
+
+/** A defender standing in the passing lane, close to the passer (v30 wrap-around / under-arm passes). */
+function laneDef(L, from, to) {
+  const dx = to.x - from.x, dy = to.y - from.y, n = Math.hypot(dx, dy) || 1;
+  for (const o of L.ents[other(from.side)]) {
+    const ox = o.x - from.x, oy = o.y - from.y, along = (ox * dx + oy * dy) / n;
+    if (along > 0.3 && along < Math.min(8, n * 0.6) && Math.abs(ox * dy - oy * dx) / n < 2.8) return o;
+  }
+  return null;
+}
 
 /** Small deterministic hash for cosmetic variety (never touches the game's RNG). */
 function hash(...n) {
@@ -6950,10 +7123,29 @@ export class Actors {
         post: A.strength >= 72 ? 'post_backdown' : 'post_up',
         star: (P.tendencies?.usage_per36 ?? 0) >= L.data.league.tend.usage_per36 * 1.2,
         flashy: A.passing >= 78,
+        // v30 dribble styles: which version of each move this player leans on (cosmetic only)
+        moves: {
+          crossover: sig(5, A.speed >= 80 ? ['crossover_quick', 'crossover_quick', 'crossover'] : ['crossover', 'crossover_quick']),
+          between_legs: sig(6, ['between_legs', 'tween_escape']),
+          behind_back: sig(7, ['behind_back', 'btb_launch']),
+          hesitation: sig(8, ['hesitation', 'hesi_lateral']),
+          spin: sig(9, A.ball_handle >= 75 ? ['spin', 'spin_back_cross'] : ['spin', 'spin', 'spin_back_cross']),
+          shift: sig(10, ['shift', 'misdirection']),
+        },
       };
       this.styles.set(e.id, S);
     }
     return S;
+  }
+
+  /** v30: the version of a dribble move this player shows. The game's move is unchanged; only the look. */
+  variant(e, kind, o = {}) {
+    const S = this.style(e), V = { crossover: 'crossover_quick', between_legs: 'tween_escape', behind_back: 'btb_launch', hesitation: 'hesi_lateral', spin: 'spin_back_cross', shift: 'misdirection' };
+    if (!V[kind]) return kind;
+    if (kind === 'between_legs' && o.away) return 'tween_escape';      // backing out: the escape version
+    if (kind === 'behind_back' && o.burst) return 'btb_launch';         // into a blow-by: the launch version
+    const mine = S.moves[kind] ?? kind, alt = mine === kind ? V[kind] : kind;
+    return hash(this.L.game.events.length, e.slot, Math.floor(this.L.time * 4), 29) < 0.3 ? alt : mine;
   }
 
   makeActor(e) {
@@ -7182,8 +7374,18 @@ export class Actors {
           const b = this.byEnt.get(o);
           if (o === blocker) { b.left = e.x < o.x; this.play(b, 'd_block', { lock: true }); continue; }
           if (o === best && !st._dunk) { b.left = e.x < o.x; const hc = hash(o.slot, L.game.events.length); this.play(b, hc < 0.35 ? 'd_block' : hc < 0.7 ? 'd_contest_jump' : 'd_hands_up', { dur: 0.6, cancel: true }); continue; }
-          if (o.role >= 2 && Math.hypot(o.x - hoop.x, o.y - hoop.y) < 13 && ev.shot !== 'rim') { b.left = !right; this.play(b, 'box_out', { dur: st.dur + 0.2, cancel: true }); }
+          if (o.role >= 2 && Math.hypot(o.x - hoop.x, o.y - hoop.y) < 13 && ev.shot !== 'rim') { b.left = !right; this.play(b, hash(o.slot, L.game.events.length, 31) < 0.4 ? 'box_out_hip' : 'box_out', { dur: st.dur + 0.2, cancel: true }); }
         }
+        // crashing the glass: an attacker with a defender between him and the rim swims over the top
+        if (ev.shot !== 'rim') for (const m of L.ents[e.side]) {
+          if (m === e) continue;
+          const dm = Math.hypot(m.x - hoop.x, m.y - hoop.y);
+          if (dm > 14) continue;
+          const sealer = L.ents[other(e.side)].find((o) => Math.hypot(o.x - m.x, o.y - m.y) < 3 && Math.hypot(o.x - hoop.x, o.y - hoop.y) < dm);
+          if (sealer && hash(m.slot, L.game.events.length, 37) < 0.3) { const b = this.byEnt.get(m); b.left = hoop.x < m.x; this.play(b, 'swim_by', { cancel: true }); }
+        }
+        // a hard closeout lands in the shooter's space: awkward one-foot landing
+        if (a && !st._dunk && ev.shot !== 'rim' && !ev.block && (st.cs ?? 0) > 0.5 && bd < 3.5 && a.one) a.one.then = 'land_hop';
       }
     } else if (st.k === 'reb') {
       const e = st.ev.player ? L.entOf(st.ev.player) : null, a = e && this.byEnt.get(e);
@@ -7191,7 +7393,7 @@ export class Actors {
       // somebody else goes up for it too
       let o2 = null, bd = 9;
       for (const o of L.all) { if (o === e) continue; const d = Math.hypot(o.x - L.ball.x, o.y - L.ball.y); if (d < bd) { bd = d; o2 = o; } }
-      if (o2 && hash(L.game.events.length, o2.slot) < 0.7) this.play(this.byEnt.get(o2), 'tip', { cancel: true });
+      if (o2 && hash(L.game.events.length, o2.slot) < 0.7) this.play(this.byEnt.get(o2), e && o2.side === e.side ? 'tip_out' : 'tip', { cancel: true });
       this.cue('rim');
     } else if (st.k === 'ftsetup') {
       this.cue('whistle');
@@ -7285,7 +7487,10 @@ export class Actors {
       // a team-mate dives after the loose ball
       let m = null, bd = 16;
       for (const o of L.ents[ev.team]) { if (o === e) continue; const d = Math.hypot(o.x - L.ball.x, o.y - L.ball.y); if (d < bd) { bd = d; m = o; } }
-      if (m) { const b = this.byEnt.get(m); b.left = L.ball.x < m.x; this.play(b, 'loose_ball_dive', { then: 'get_up', lock: true }); }
+      if (m) {
+        const b = this.byEnt.get(m), save = hash(L.game.events.length, m.slot, 53) < 0.5;
+        b.left = L.ball.x < m.x; this.play(b, save ? 'oob_save' : 'loose_ball_dive', { then: save ? null : 'get_up', lock: true });
+      }
     }
     if (a) this.play(a, 'dejected', { cancel: true });
   }
@@ -7300,20 +7505,25 @@ export class Actors {
     else if (L.phase === 'inbound') name = 'overhead_pass';
     else if (d > 40) name = 'pass_baseball';
     else if (d > 26) name = 'overhead_pass';
+    else if (laneDef(L, from, to) && h2 < 0.75) name = d < 18 || h2 < 0.3 ? 'pass_under' : 'pass_wrap';   // around / under the defender in the way
     else if (S.flashy && h2 < 0.12) name = 'pass_behind_back';
     else if (S.flashy && h2 < 0.3) name = 'pass_no_look';
     else if (mv > 7 && h2 > 0.55) name = 'pass_whip';
     else name = h < 0.3 ? 'bounce_pass' : 'chest_pass';
     if (Math.abs(to.x - from.x) > 1) a.left = to.x < from.x;
     this.play(a, name, { from: ANIMS[name].rel * 0.75, cancel: true });
-    this.passKind = name;
+    this.passKind = name; this.passT = L.time;
     this.cue('pass');
   }
 
   onCatch(e) {
     const a = this.byEnt.get(e);
     if (!a || a.one?.lock) return;
-    this.play(a, 'catch', { from: 0.35, cancel: true });
+    const L = this.L, k = L.time - (this.passT ?? -9) < 3 ? this.passKind : null;
+    const line = e.y < 3.2 || e.y > 46.8 || e.x < 2.8 || e.x > 91.2;
+    const name = line ? 'catch_tiptoe' : k === 'bounce_pass' || k === 'pass_under' ? 'catch_low'
+      : (k === 'chest_pass' || k === 'pass_whip' || k === 'pass_baseball' || k === 'pass_no_look') && hash(L.game.events.length, e.slot, 59) < 0.6 ? 'catch_bullet' : 'catch';
+    this.play(a, name, { from: name === 'catch' ? 0.35 : name === 'catch_tiptoe' ? 0.1 : 0.2, cancel: true });
     a.catchT = 0; a.moved = false;
     this.cue('catch');
   }
@@ -7368,7 +7578,8 @@ export class Actors {
       // dribble move called with C: play it now (a blow-by finishes with the burst)
       a.lastMove = e.dmove.at;
       if (L.time - e.dmove.at < 0.25) {
-        const dm = e.dmove, name = ANIMS[dm.kind] ? dm.kind : 'hesitation';
+        const dm = e.dmove, hp = L.hoopOf(e.side);
+        const name = this.variant(e, ANIMS[dm.kind] ? dm.kind : 'hesitation', { burst: dm.burst, away: dm.dx * (hp.x - e.x) + dm.dy * (hp.y - e.y) < 0 });
         a.left = dm.dx < 0;
         this.play(a, name, { cancel: false, then: dm.burst ? 'drive_burst' : null }); a.cd = 0.85; this.cue('squeak');
       }
@@ -7460,21 +7671,21 @@ export class Actors {
         const h = hash(Math.floor(L.time * 7), e.slot, 41);
         let mv = null;
         if (nd.d < 10) {
-          if (toHoopNow < -0.45 && toHoopPrev > 0.2 && nd.d < 6.5) mv = pick(h, ['step_back', 'snatch_back', 'stepback_cross', 'escape_retreat']);
-          else if (ang > 115) mv = pick(h, ['spin', 'half_spin', 'behind_back', 'spin_reverse', 'wrap_behind']);
+          if (toHoopNow < -0.45 && toHoopPrev > 0.2 && nd.d < 6.5) mv = pick(h, ['step_back', 'snatch_back', 'stepback_cross', 'escape_retreat', 'tween_escape']);
+          else if (ang > 115) mv = this.variant(e, pick(h, ['spin', 'half_spin', 'behind_back', 'spin_reverse', 'wrap_behind', 'spin']));
           else if (ang > 38 && dh < 15 && toHoopNow > 0.4) mv = 'euro_step';
-          else if (ang > 48) mv = pick(h, ['crossover', 'between_legs', 'behind_back', 'in_and_out', 'double_cross', 'push_cross', 'combo_cross_tween', 'combo_btb_cross', 'drag_cross']);
+          else if (ang > 48) mv = this.variant(e, pick(h, ['crossover', 'between_legs', 'behind_back', 'in_and_out', 'double_cross', 'push_cross', 'combo_cross_tween', 'combo_btb_cross', 'drag_cross', 'shift', 'crossover']), { burst: spd > 11 });
         }
         if (mv) { this.play(a, mv, {}); a.cd = 0.85; this.cue('squeak'); }
       } else if (ps > 9.5 && spd < 3.5 && L.nearestDef(e).d < 9) {
         const dh = Math.hypot(hoop.x - x, hoop.y - y), h = hash(Math.floor(L.time * 7), e.slot, 43);
-        this.play(a, dh < 12 ? 'jump_stop' : pick(h, ['hesitation', 'stutter_step', 'hang_hesi', 'shift']), {}); a.cd = 0.9; this.cue('squeak');
+        this.play(a, dh < 12 ? 'jump_stop' : this.variant(e, pick(h, ['hesitation', 'stutter_step', 'hang_hesi', 'shift', 'hesitation'])), {}); a.cd = 0.9; this.cue('squeak');
       } else if (ps < 5.5 && spd > 10.5 && (a.vvx * (hoop.x - x) + a.vvy * (hoop.y - y)) > 0 && Math.hypot(hoop.x - x, hoop.y - y) < 32) {
         this.play(a, 'drive_burst', {}); a.cd = 0.7; this.cue('squeak');   // first step of a drive
       } else if (spd < 0.8 && a.catchT > 0.3 && a.catchT < 0.5 && !a.jab && L.nearestDef(e).d < 6.5) {
         a.jab = true;
         const h = hash(Math.floor(L.time * 3), e.slot, 47);
-        if (h < 0.6) { this.play(a, pick(h / 0.6, ['jab_step', 'pump_fake', 'rip_through', 'pass_fake']), { cancel: true }); a.cd = 0.6; }
+        if (h < 0.6) { this.play(a, pick(h / 0.6, ['jab_step', 'pump_fake', 'rip_through', 'pass_fake', 'rip_low', 'head_fake']), { cancel: true }); a.cd = 0.6; }
       }
       if (a.pvT > 0.14) { a.pv = [a.vvx, a.vvy]; a.pvT = 0; }
     } else if (!isHolder) { a.pv = [0, 0]; a.jab = false; }
@@ -7482,6 +7693,42 @@ export class Actors {
     // --- pick and roll: the screener opens up and rolls when the screen ends
     if (a.wasScreen && !(e.screen > 0) && e.roll && !a.one) this.play(a, 'screen_roll', { cancel: true });
     a.wasScreen = e.screen > 0;
+
+    // --- v30 contact and footwork (all cosmetic: the game's own body collisions already slow the driver)
+    a.bumpCd = Math.max(0, (a.bumpCd ?? 0) - dt);
+    if (live && !L.windup && !L.meter) {
+      if (isHolder && !a.one && a.bumpCd <= 0 && spd > 2.5) {
+        // body-up: the driver runs into a set defender who rides his hip
+        const nd = L.nearestDef(e), d = nd.e, b = d && this.byEnt.get(d);
+        const want = Math.hypot(e.dvx ?? 0, e.dvy ?? 0);
+        if (b && nd.d < 2.65 && want > 3 && hash(Math.floor(L.time * 2), e.slot, 95) < 0.3 && ((e.dvx ?? 0) * (d.x - e.x) + (e.dvy ?? 0) * (d.y - e.y)) / (want * nd.d) > 0.55 && !b.one?.lock) {
+          this.play(a, 'bump_stumble', {}); a.cd = Math.max(a.cd, 0.5);
+          b.left = e.x < d.x; this.play(b, 'd_body_up', {});
+          a.bumpCd = 2.5; b.bumpCd = 2.5; this.cue('contact');
+        }
+      }
+      if (isHolder && (e.pivot || (!a.moved && a.catchT > 0.8 && a.catchT < 2.2)) && !a.one && a.cd <= 0 && spd < 1 && L.nearestDef(e).d < 4.5 && hash(Math.floor(L.time / 1.2), e.slot, 97) < 0.3) {
+        // dead ball under pressure: head fakes and low rips while he looks for a pass
+        this.play(a, hash(Math.floor(L.time), e.slot, 98) < 0.5 ? 'head_fake' : 'rip_low', {}); a.cd = 1.2;
+      }
+      if (!isHolder) {
+        // sharp stops and cuts off the ball
+        a.pv2T = (a.pv2T ?? 0) + dt;
+        const pv = a.pv2 ?? [0, 0], ps = Math.hypot(pv[0], pv[1]);
+        if (!a.one && a.bumpCd <= 0) {
+          if (ps > 12 && spd < 3) { this.play(a, 'chop_stop', { cancel: true }); a.bumpCd = 2; this.cue('squeak'); }
+          else if (off && ps > 6.5 && spd > 6.5 && (pv[0] * a.vvx + pv[1] * a.vvy) / (ps * spd) < -0.35) { this.play(a, 'v_cut', {}); a.bumpCd = 1.4; this.cue('squeak'); }
+          else if (off && spd > 8 && hash(Math.floor(L.time * 2), e.slot, 93) < 0.35) {
+            // a cutter slipping past a defender in his way
+            for (const o of L.ents[other(e.side)]) {
+              const dx = o.x - x, dy = o.y - y, dd = Math.hypot(dx, dy);
+              if (dd < 2.5 && (dx * a.vvx + dy * a.vvy) / (dd * spd) > 0.6) { this.play(a, 'swim_by', {}); a.bumpCd = 3; break; }
+            }
+          }
+        }
+        if (a.pv2T > 0.16) { a.pv2 = [a.vvx, a.vvy]; a.pv2T = 0; }
+      }
+    }
 
     // --- post-up detection (a big with his back to the basket and a defender on him)
     const dh = Math.hypot(hoop.x - x, hoop.y - y);
@@ -7502,6 +7749,7 @@ export class Actors {
       else if (a.post > 0.3) { name = spd < 0.5 && a.catchT < 1.2 ? 'post_hold' : S.post; a.left = hoop.x >= x; }
       else if (spd < 1.3) name = a.catchT < 0.4 || !live ? 'idle_ball' : !a.moved && a.catchT < 2.2 ? 'triple_threat' : L.nearestDef(e).d < 7 && hash(Math.floor(L.time / 2.7), e.slot, 61) < 0.5 ? S.sizeUp : 'dribble_stand';
       else if (spd < 5.5 && L.nearestDef(e).d < 3.4 && !backward) name = 'protect_ball';
+      else if (spd <= 11.5 && L.nearestDef(e).d < 3.4 && !backward) name = 'dribble_shield';   // off-arm out against the reach
       else name = spd > 11.5 || (e.sprinting && spd > 9) ? 'dribble_sprint' : S.drib;
     } else if (!off && live && holder) {
       const man = L.matchOf(e), onBall = man === holder;
@@ -7510,7 +7758,8 @@ export class Actors {
       const scr = onBall && !shooting ? L.ents[holder.side].find((m) => m.screen > 0 && Math.hypot(m.x - x, m.y - y) < 3.3) : null;
       if (e.handsUp || (shooting && (onBall || dhd < 6.5) && spd < 4)) name = 'd_hands_up';
       else if (L.double && L.double.e === e && dhd < 6 && spd < 4) name = 'd_trap';
-      else if (scr && spd > 0.8) name = 'screen_fight';
+      else if (onBall && dhd < 4.5 && (this.byEnt.get(holder)?.post ?? 0) > 0.3) name = 'd_post_bar';
+      else if (scr && spd > 0.8) name = hash(scr.slot, e.slot, Math.floor(L.time / 3)) < 0.5 ? 'screen_squeeze' : 'screen_fight';
       else if (shooting && dhd < 14 && spd >= 4 && (a.vvx * (holder.x - x) + a.vvy * (holder.y - y)) > 0) name = 'd_closeout';
       else if (spd < 1.2) name = onBall || dhd < 8 ? 'd_stance' : dm < 9 && Math.hypot(man.x - holder.x, man.y - holder.y) < 24 ? 'deny' : dm < 12 ? 'd_stance' : 'idle';
       else if (spd > 12) name = S.sprint;
